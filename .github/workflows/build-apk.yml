@@ -52,13 +52,10 @@ jobs:
             echo "ok=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Tests des règles de gestion
-        run: gradle testReleaseUnitTest --no-daemon --stacktrace
-
-      - name: Compiler l'APK
+      - name: Compiler l'APK et lancer les tests
         env:
           MOUSSA_KEY_PASSWORD: ${{ secrets.MOUSSA_KEY_PASSWORD }}
-        run: gradle assembleRelease --no-daemon --stacktrace
+        run: gradle assembleRelease test --no-daemon --stacktrace --continue
 
       - name: Renommer l'APK
         if: steps.cle.outputs.ok == 'true'
@@ -67,7 +64,7 @@ jobs:
         run: |
           set -e
           VERSION=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
-          cp app/build/outputs/apk/release/app-release.apk moussa-EI.apk
+          cp app/build/outputs/apk/release/app-release.apk moussa-EI.apk 2>/dev/null || cp app/build/outputs/apk/release/*.apk moussa-EI.apk
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           ls -la moussa-EI.apk
 
