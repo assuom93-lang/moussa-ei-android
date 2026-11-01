@@ -132,7 +132,8 @@ class GestionTest {
         val d = d0.copy(fournisseurs = d0.fournisseurs + com.moussaei.gestion.core.Fournisseur("_pp1", "Points P (P.P) Aubervilliers", "Face au, 29 Quai Lucien Lefranc, 93300 Aubervilliers"))
         val cat = Gestion.lireCatalogue("enseigne,nom,adresse\nPoint P,Point P Aubervilliers,\"29 Quai Lucien Lefranc, 93300 Aubervilliers\"\nPoint P,Point P Bobigny,\"1 rue Test, 93000 Bobigny\"\nBigmat,Bigmat,\"1 rue X, 93000 Bobigny\"\n")
         val m = Gestion.migrer(d, cat)
-        assertEquals(2, Gestion.agencesDe(m, "Point P").size) // doublon Aubervilliers évité, Bigmat ignoré
+        assertEquals(1, Gestion.agencesDe(m, "Point P").size) // v4.3 : rien n'est ajouté aux fournisseurs
+        assertEquals(listOf("Point P Bobigny"), Gestion.lexique(m, cat).map { it.nom }) // doublon Aubervilliers évité, Bigmat ignoré
         assertEquals("76 Rue Test, 93700 Drancy", m.reglages.depot) // fournisseur « Dépôt »
         assertEquals(m, Gestion.migrer(m, cat))
         var r = Gestion.recupererPalettes(m, "Point P", "SLM", 2, "", LocalDate.of(2026, 11, 2))

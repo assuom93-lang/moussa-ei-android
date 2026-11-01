@@ -64,7 +64,7 @@ fun EcranAccueil(data: AppData, repo: Repository, onOuvrir: (Ecran, String) -> U
             ResultatsRecherche(data, repo, q, onOuvrir)
         } else {
             Resume(data, onOuvrir)
-            Tuiles(data, onOuvrir)
+            Tuiles(data, repo, onOuvrir)
         }
     }
 }
@@ -150,7 +150,7 @@ private fun LigneResume(icone: String, texte: String, couleur: Color = Color.Uns
 }
 
 @Composable
-private fun Tuiles(data: AppData, onOuvrir: (Ecran, String) -> Unit) {
+private fun Tuiles(data: AppData, repo: Repository, onOuvrir: (Ecran, String) -> Unit) {
     val nbTrajet = data.trajet.size
     // Trajet en grand : c'est la fonction la plus utilisée.
     Tuile(
@@ -165,6 +165,7 @@ private fun Tuiles(data: AppData, onOuvrir: (Ecran, String) -> Unit) {
         Triple(Ecran.CAMION, Gestion.nbACharger(data).let { if (it == 0) "vide" else "$it à charger" }, Couleurs.RougeClair to Couleurs.RougeFonce),
         Triple(Ecran.HEURES, Heures.format(Heures.totalMois(data.heures, LocalDate.now().year, LocalDate.now().monthValue).total) + " ce mois", Couleurs.VertClair to Couleurs.VertFonce),
         Triple(Ecran.HISTORIQUE, "${data.archives.size} livrés", Couleurs.GrisClair to Couleurs.Gris),
+        Triple(Ecran.LEXIQUE, "${repo.catalogue.size} agences IDF", Couleurs.BleuClair to Couleurs.Bleu),
     )
     tuiles.chunked(2).forEach { ligne ->
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {

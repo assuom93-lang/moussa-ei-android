@@ -92,16 +92,6 @@ fun EcranReglages(data: AppData, repo: Repository) {
         CarteEntrepriseDepot(data, repo)
 
         Carte {
-            TitreCarte("🏬 Agences Île-de-France")
-            Ligne("Ajoute les agences Point P, Raboni, Loxam et Kiloutou d'Île-de-France des enseignes déjà dans tes fournisseurs (${repo.catalogue.size} agences connues). Tes fiches ne sont pas modifiées et rien n'est ajouté en double.")
-            BoutonPlein("➕ Ajouter les agences manquantes", Couleurs.Bleu) {
-                var n = 0
-                repo.update { d -> Gestion.ajouterAgences(d, repo.catalogue).also { n = it.second }.first }
-                Actions.toast(ctx, if (n == 0) "Toutes les agences sont déjà là" else "✅ $n agence" + (if (n > 1) "s ajoutées" else " ajoutée"))
-            }
-        }
-
-        Carte {
             TitreCarte("⏰ Rappel heures de travail")
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {

@@ -116,20 +116,21 @@ fun AgencesDialog(data: AppData, repo: Repository, enseigne: String, onOuvrirFic
     var q by rememberSaveable { mutableStateOf("") }
     val agences = Gestion.agencesDe(data, enseigne)
     val palettes = data.palettes.filter { Gestion.memeEnseigne(Gestion.enseigneDePalette(data, it), enseigne) }
-    FenetrePleine("🏬 $enseigne · ${agences.size} agence" + (if (agences.size > 1) "s" else ""), onFermer) {
+    FenetrePleine("🏬 $enseigne", onFermer) {
         if (palettes.isNotEmpty()) {
             Carte {
                 Text("🪵 Palettes $enseigne", fontWeight = FontWeight.Bold)
                 Text(palettes.sortedWith { a, b -> Gestion.compareNoms(a.nom, b.nom) }.joinToString(" · ") { it.nom }, fontSize = 13.sp)
             }
         }
-        if (agences.size > 5) {
+        if (agences.size + Gestion.lexique(data, repo.catalogue, enseigne).size > 5) {
             OutlinedTextField(
                 value = q, onValueChange = { q = it },
                 placeholder = { Text("🔍 Ville, code postal…") },
                 singleLine = true, modifier = Modifier.fillMaxWidth(),
             )
         }
+        if (agences.isNotEmpty()) SectionTitre("Mes fournisseurs $enseigne")
         agences.filter { Gestion.correspond(q, it.nom, it.adresse) }.forEach { f ->
             Carte(onClick = onOuvrirFiche?.let { o -> { o(f.id) } }) {
                 TitreCarte(f.nom.trim())
@@ -139,6 +140,11 @@ fun AgencesDialog(data: AppData, repo: Repository, enseigne: String, onOuvrirFic
                     BoutonTrajet(data, repo, ARRET_FOURNISSEUR, f.id, f.nom.trim(), f.adresse, Modifier.weight(1f))
                 }
             }
+        }
+        val autres = Gestion.lexique(data, repo.catalogue, enseigne).filter { Gestion.correspond(q, it.nom, it.adresse) }
+        if (autres.isNotEmpty()) {
+            SectionTitre("📖 Autres agences $enseigne (lexique) · ${autres.size}")
+            autres.forEach { a -> CarteAgenceLexique(data, repo, a) }
         }
     }
 }
@@ -162,7 +168,8 @@ private fun FicheFournisseur(data: AppData, repo: Repository, f: Fournisseur, on
             }
             BoutonPetit("✏️ Modifier", Couleurs.Indigo) { onModifier() }
         }
-        if (nbAgences > 1) BoutonContour("🏬 Les $nbAgences agences $enseigne") { voirAgences = true }
+        val nbLexique = Gestion.lexique(data, repo.catalogue, enseigne).size
+        if (nbAgences > 1 || nbLexique > 0) BoutonContour("🏬 Toutes les agences $enseigne" + if (nbLexique > 0) " (+ $nbLexique dans le lexique)" else "") { voirAgences = true }
         if (palettes.isNotEmpty()) {
             SectionTitre("Palettes $enseigne (${palettes.size})")
             Carte {

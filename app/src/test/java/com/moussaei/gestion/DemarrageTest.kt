@@ -78,22 +78,25 @@ class DemarrageTest {
     @Test
     fun chaqueEcranSOuvreSansPlanter() {
         compose.onNodeWithText("moussa EI").assertExists()
-        // La migration v4.2 a tourné : enseignes + agences du catalogue.
-        val d = MoussaApp.instance.repo.donnees
+        // Migration faite : enseignes devinées, aucune agence ajoutée aux fournisseurs (v4.3).
+        val repo = MoussaApp.instance.repo
+        val d = repo.donnees
         check(d.reglages.version >= com.moussaei.gestion.core.VERSION_DONNEES) { "migration non faite" }
-        check(d.fournisseurs.size > 100) { "agences non ajoutées : ${d.fournisseurs.size}" }
+        check(d.fournisseurs.size == 5) { "fournisseurs : ${d.fournisseurs.size}" }
+        check(d.fournisseurs.first { it.id == "_f00000001" }.enseigne == "Point P") { "enseigne non devinée" }
+        check(com.moussaei.gestion.core.Gestion.lexique(d, repo.catalogue).size > 100) { "lexique vide" }
         check(d.reglages.depot == "76 Rue Test, 93700 Drancy") { "dépôt : ${d.reglages.depot}" }
 
-        for (t in listOf("Trajet", "Chantiers", "Fournisseurs", "Palettes", "Camion", "Heures", "Historique")) {
+        for (t in listOf("Trajet", "Chantiers", "Fournisseurs", "Palettes", "Camion", "Heures", "Historique", "Lexique des agences")) {
             ouvrirTuile(t)
             retour()
         }
         // Réglages
         compose.onNodeWithText("⚙️").performClick(); compose.waitForIdle(); retour()
 
-        // Fournisseurs → enseigne Point P → liste des agences
-        ouvrirTuile("Fournisseurs")
-        compose.onAllNodesWithText("🏬 Point P")[0].performScrollTo().performClick(); compose.waitForIdle()
+        // Palettes → agences Point P (fournisseurs + lexique)
+        ouvrirTuile("Palettes")
+        compose.onAllNodesWithText("🏬 Voir les agences Point P (📍 / ➕ Trajet)")[0].performScrollTo().performClick(); compose.waitForIdle()
         compose.onAllNodesWithText("✕")[0].performClick(); compose.waitForIdle()
         retour()
 

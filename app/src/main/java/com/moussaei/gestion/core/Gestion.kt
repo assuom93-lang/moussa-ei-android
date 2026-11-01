@@ -310,7 +310,7 @@ object Gestion {
         return "$cp-$num"
     }
 
-    private fun idAgence(a: AgenceCatalogue): String =
+    fun idAgence(a: AgenceCatalogue): String =
         "_ag" + Integer.toHexString((normaliser(a.enseigne) + "|" + cleAdresse(a.adresse)).hashCode()).padStart(8, '0')
 
     /**
@@ -346,18 +346,57 @@ object Gestion {
         return d.copy(fournisseurs = d.fournisseurs + nouveaux) to nouveaux.size
     }
 
-    /** Migration vers la v4.2 (une seule fois ; refaite après l'import d'un ancien fichier). */
+    /**
+     * Migrations (une seule fois ; refaites après l'import d'un ancien fichier) :
+     * - v4.2 : enseignes devinées, dépôt = fournisseur « Dépôt » ;
+     * - v4.3 : les agences ajoutées automatiquement en v4.2 quittent « Mes fournisseurs »
+     *   (elles restent consultables dans le lexique).
+     */
     fun migrer(d: AppData, catalogue: List<AgenceCatalogue>): AppData {
         if (d.reglages.version >= VERSION_DONNEES) return d
-        var x = completerEnseignes(d)
-        x = ajouterAgences(x, catalogue).first
-        if (x.reglages.depot.isBlank()) {
-            // Le fournisseur « Dépôt » existant devient le dépôt de départ / retour.
-            val depot = d.fournisseurs.firstOrNull { normaliser(it.nom) == "depot" && it.adresse.isNotBlank() }
-            if (depot != null) x = x.copy(reglages = x.reglages.copy(depot = depot.adresse.trim()))
+        var x = d
+        if (x.reglages.version < 42) {
+            x = completerEnseignes(x)
+            if (x.reglages.depot.isBlank()) {
+                val depot = x.fournisseurs.firstOrNull { normaliser(it.nom) == "depot" && it.adresse.isNotBlank() }
+                if (depot != null) x = x.copy(reglages = x.reglages.copy(depot = depot.adresse.trim()))
+            }
         }
+        x = retirerAgencesAuto(x, catalogue)
         return x.copy(reglages = x.reglages.copy(version = VERSION_DONNEES))
     }
+
+    /**
+     * Retire les fiches créées depuis le catalogue (id « _ag… ») restées telles quelles
+     * et utilisées nulle part (camion, trajet). Les fiches modifiées ou utilisées sont gardées.
+     */
+    fun retirerAgencesAuto(d: AppData, catalogue: List<AgenceCatalogue>): AppData {
+        val parId = catalogue.associateBy { idAgence(it) }
+        val utilises = (d.materiels.map { it.fournisseurId } + d.trajet.map { it.ref }).toSet()
+        val retires = d.fournisseurs.filter { f ->
+            val a = parId[f.id]
+            f.id.startsWith("_ag") && a != null && a.nom == f.nom && a.adresse == f.adresse && f.id !in utilises
+        }.map { it.id }.toSet()
+        if (retires.isEmpty()) return d
+        return d.copy(
+            fournisseurs = d.fournisseurs.filterNot { it.id in retires },
+            palettes = d.palettes.map { if (it.fournisseurId in retires) it.copy(fournisseurId = "") else it },
+        )
+    }
+
+    // ---------- Lexique des agences ----------
+
+    /** Agences du catalogue pour les enseignes que l'utilisateur a déjà, hors celles déjà dans ses fournisseurs. */
+    fun lexique(d: AppData, catalogue: List<AgenceCatalogue>, enseigne: String = ""): List<AgenceCatalogue> {
+        val siennes = d.fournisseurs.map { normaliser(enseigneDe(it)) }.toSet()
+        val candidats = catalogue.filter { normaliser(it.enseigne) in siennes && (enseigne.isBlank() || memeEnseigne(it.enseigne, enseigne)) }
+        if (candidats.isEmpty()) return emptyList()
+        // Celles que ajouterAgences garderait = pas encore dans les fournisseurs.
+        val ids = ajouterAgences(d, candidats).first.fournisseurs.drop(d.fournisseurs.size).map { it.id }.toSet()
+        return candidats.filter { idAgence(it) in ids }
+    }
+
+    fun ajouterAuxFournisseurs(d: AppData, a: AgenceCatalogue): AppData = ajouterAgences(d, listOf(a)).first
 
     fun modifierReglages(d: AppData, r: Reglages): AppData = d.copy(reglages = r.copy(version = d.reglages.version))
 

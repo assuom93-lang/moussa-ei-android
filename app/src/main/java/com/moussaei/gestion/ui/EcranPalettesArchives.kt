@@ -42,14 +42,16 @@ fun BoutonsEnseigne(data: AppData, repo: Repository, enseigne: String, onAgences
     val ctx = LocalContext.current
     val agences = Gestion.agencesDe(data, enseigne)
     val unique = agences.singleOrNull()
-    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        when {
-            unique != null && unique.adresse.isNotBlank() -> {
+    val nbLexique = Gestion.lexique(data, repo.catalogue, enseigne).size
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (unique != null && unique.adresse.isNotBlank()) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 BoutonPetit("📍 Maps", Couleurs.Bleu, Modifier.weight(1f)) { Actions.ouvrirAdresse(ctx, unique.adresse) }
                 BoutonTrajet(data, repo, ARRET_FOURNISSEUR, unique.id, unique.nom.trim(), unique.adresse, Modifier.weight(1f))
             }
-            agences.size > 1 -> BoutonPetit("🏬 Voir les ${agences.size} agences (📍 / ➕ Trajet)", Couleurs.Bleu, Modifier.weight(1f)) { onAgences() }
-            else -> {}
+        }
+        if (agences.size > 1 || nbLexique > 0) {
+            BoutonPetit("🏬 Voir les agences $enseigne (📍 / ➕ Trajet)", Couleurs.Bleu, Modifier.fillMaxWidth()) { onAgences() }
         }
     }
 }

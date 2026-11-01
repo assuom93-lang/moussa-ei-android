@@ -41,6 +41,7 @@ enum class Ecran(val icone: String, val titre: String, val avecRecherche: Boolea
     CAMION("🚚", "Camion", true),
     HEURES("⏰", "Heures", false),
     HISTORIQUE("📂", "Historique", true),
+    LEXIQUE("📖", "Lexique des agences", true),
     REGLAGES("⚙️", "Réglages", false),
 }
 
@@ -117,6 +118,7 @@ fun EcranPrincipal(repo: Repository, ecranDemande: Ecran?, onEcranConsomme: () -
                 Ecran.CAMION -> EcranCamion(data, repo, recherche)
                 Ecran.HEURES -> EcranHeures(data, repo)
                 Ecran.HISTORIQUE -> EcranArchives(data, repo, recherche)
+                Ecran.LEXIQUE -> EcranLexique(data, repo, recherche)
                 Ecran.REGLAGES -> EcranReglages(data, repo)
             }
         }

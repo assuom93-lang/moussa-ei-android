@@ -89,7 +89,7 @@ data class Reglages(
     val version: Int = 0,
 )
 
-const val VERSION_DONNEES = 42
+const val VERSION_DONNEES = 43
 
 /** Une journée de travail. La clé (date aaaa-mm-jj) est portée par la map. */
 data class Heure(
