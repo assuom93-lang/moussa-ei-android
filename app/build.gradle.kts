@@ -14,8 +14,8 @@ android {
         applicationId = "com.moussaei.gestion"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "4.2"
+        versionCode = 4
+        versionName = "4.2.1"
         // Seulement les processeurs des téléphones actuels (allège l'APK du scanner de texte).
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
@@ -37,9 +37,9 @@ android {
 
     buildTypes {
         release {
-            // R8 : retire le code inutilisé des bibliothèques (APK beaucoup plus léger).
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // R8 désactivé (v4.2.1) : l'appli se fermait au démarrage avec le code compressé.
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (cle.exists()) signingConfig = signingConfigs.getByName("moussa")
         }

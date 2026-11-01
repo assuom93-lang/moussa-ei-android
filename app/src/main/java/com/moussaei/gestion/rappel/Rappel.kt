@@ -98,7 +98,7 @@ object Rappel {
 class RappelWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
     override fun doWork(): Result {
         if (Rappel.estActif(applicationContext)) {
-            try { Rappel.notifier(applicationContext) } catch (e: SecurityException) { /* permission retirée */ }
+            try { Rappel.notifier(applicationContext) } catch (e: Throwable) { /* permission retirée ou appli pas prête */ }
             Rappel.programmer(applicationContext) // demain 15h
         }
         return Result.success()
