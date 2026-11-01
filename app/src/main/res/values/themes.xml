@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.MoussaEI" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">#1E40AF</item>
+        <item name="android:windowBackground">@color/fond</item>
+    </style>
+    <color name="fond">#F5F7FB</color>
+    <color name="bleu">#1E40AF</color>
+</resources>

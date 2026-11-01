@@ -1,0 +1,93 @@
+name: Construire l'APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Configurer JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Installer Gradle 9.6.0
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '9.6.0'
+
+      - name: Installer Android SDK (API 36 / Build-tools 36.0.0)
+        shell: bash
+        run: |
+          set -e
+          SDKM="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --licenses >/dev/null 2>&1 || true
+          "$SDKM" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Clé de signature (secret du dépôt)
+        id: cle
+        shell: bash
+        env:
+          MOUSSA_KEYSTORE_B64: ${{ secrets.MOUSSA_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$MOUSSA_KEYSTORE_B64" ]; then
+            # Sans la clé fixe, on vérifie seulement que le code compile : pas d'APK publié
+            # (un APK signé avec une autre clé ne pourrait pas être mis à jour ensuite).
+            echo "::warning::Secret MOUSSA_KEYSTORE_B64 absent : compilation de contrôle seulement, aucun APK publié."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            mkdir -p signing
+            echo "$MOUSSA_KEYSTORE_B64" | base64 -d > signing/moussa-ei.jks
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Tests des règles de gestion
+        run: gradle testReleaseUnitTest --no-daemon --stacktrace
+
+      - name: Compiler l'APK
+        env:
+          MOUSSA_KEY_PASSWORD: ${{ secrets.MOUSSA_KEY_PASSWORD }}
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: Renommer l'APK
+        if: steps.cle.outputs.ok == 'true'
+        id: apk
+        shell: bash
+        run: |
+          set -e
+          VERSION=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          cp app/build/outputs/apk/release/app-release.apk moussa-EI.apk
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          ls -la moussa-EI.apk
+
+      - name: Garder l'APK (artefact)
+        if: steps.cle.outputs.ok == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: moussa-EI-apk
+          path: moussa-EI.apk
+          retention-days: 14
+
+      - name: Publier la version (téléchargement direct sur le téléphone)
+        if: steps.cle.outputs.ok == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          TAG="v${{ steps.apk.outputs.version }}-${{ github.run_number }}"
+          gh release create "$TAG" moussa-EI.apk \
+            --title "moussa EI ${{ steps.apk.outputs.version }} (build ${{ github.run_number }})" \
+            --notes "APK à installer sur le téléphone : touche moussa-EI.apk ci-dessous." \
+            --latest
