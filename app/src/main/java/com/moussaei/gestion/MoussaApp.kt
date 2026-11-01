@@ -4,7 +4,7 @@ import android.app.Application
 import com.moussaei.gestion.data.Repository
 import com.moussaei.gestion.rappel.Rappel
 
-class MoussaApp : Application() {
+open class MoussaApp : Application() {
 
     lateinit var repo: Repository
         private set

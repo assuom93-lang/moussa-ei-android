@@ -52,6 +52,13 @@ android {
 
     buildFeatures { compose = true }
 
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+            isReturnDefaultValues = true
+        }
+    }
+
     lint {
         abortOnError = false
         checkReleaseBuilds = false
@@ -83,4 +90,9 @@ dependencies {
     implementation("com.google.mlkit:text-recognition:16.0.1")
 
     testImplementation("junit:junit:4.13.2")
+    // Test de démarrage : lance la vraie appli (Robolectric) et ouvre chaque écran.
+    testImplementation("org.robolectric:robolectric:4.13")
+    testImplementation("androidx.test:core-ktx:1.6.1")
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

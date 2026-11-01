@@ -76,6 +76,14 @@ jobs:
           path: moussa-EI.apk
           retention-days: 14
 
+      - name: Rapport des tests (en cas d'échec)
+        if: failure()
+        shell: bash
+        run: |
+          for f in app/build/test-results/testDebugUnitTest/*.xml; do
+            grep -A40 "<failure" "$f" | head -80 || true
+          done
+
       - name: Publier la version (téléchargement direct sur le téléphone)
         if: steps.cle.outputs.ok == 'true'
         shell: bash

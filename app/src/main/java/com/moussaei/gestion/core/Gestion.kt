@@ -319,24 +319,28 @@ object Gestion {
      * ou même code postal + numéro chez la même enseigne).
      */
     fun ajouterAgences(d: AppData, catalogue: List<AgenceCatalogue>): Pair<AppData, Int> {
-        val siennes = d.fournisseurs.map { normaliser(enseigneDe(it)) }.toSet()
+        // Clés calculées une seule fois (sinon des centaines de milliers de normalisations au démarrage).
+        data class Cles(val enseigne: String, val adresse: String, val sig: String?)
+        fun cles(enseigne: String, adresse: String) = Cles(normaliser(enseigne), cleAdresse(adresse), signature(adresse))
+        val existants = d.fournisseurs.map { cles(enseigneDe(it), it.adresse) }.toMutableList()
+        val ids = d.fournisseurs.map { it.id }.toMutableSet()
+        val siennes = existants.map { it.enseigne }.toSet()
         val nouveaux = ArrayList<Fournisseur>()
-        val tous = d.fournisseurs.toMutableList()
         catalogue.forEach { a ->
-            if (normaliser(a.enseigne) !in siennes) return@forEach
+            val c = cles(a.enseigne, a.adresse)
+            if (c.enseigne !in siennes) return@forEach
             val id = idAgence(a)
-            val sig = signature(a.adresse)
-            val cle = cleAdresse(a.adresse)
-            val doublon = tous.any { f ->
-                f.id == id || (memeEnseigne(enseigneDe(f), a.enseigne) &&
-                    (cleAdresse(f.adresse) == cle || (sig != null && signature(f.adresse) == sig) ||
+            val doublon = id in ids || existants.any { f ->
+                f.enseigne == c.enseigne && (
+                    f.adresse == c.adresse || (c.sig != null && f.sig == c.sig) ||
                         // fiche sans code postal (« 41 Boulevard Anatole France ») : rue contenue dans l'adresse
-                        (cleAdresse(f.adresse).let { k -> k.length >= 12 && k[0].isDigit() && cle.contains(k) })))
+                        (f.adresse.length >= 12 && f.adresse[0].isDigit() && c.adresse.contains(f.adresse))
+                    )
             }
             if (!doublon) {
-                val f = Fournisseur(id, a.nom, a.adresse, a.enseigne)
-                nouveaux += f
-                tous += f
+                nouveaux += Fournisseur(id, a.nom, a.adresse, a.enseigne)
+                existants += c
+                ids += id
             }
         }
         return d.copy(fournisseurs = d.fournisseurs + nouveaux) to nouveaux.size
