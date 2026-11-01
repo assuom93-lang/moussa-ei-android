@@ -43,7 +43,6 @@ import java.time.LocalDate
 fun EcranReglages(data: AppData, repo: Repository) {
     val ctx = LocalContext.current
     var rappel by remember { mutableStateOf(Rappel.estActif(ctx)) }
-    var colle by rememberSaveable { mutableStateOf("") }
     var importEnAttente by remember { mutableStateOf<Csv.Import?>(null) }
     var voirSauvegardes by rememberSaveable { mutableStateOf(false) }
 
@@ -59,7 +58,7 @@ fun EcranReglages(data: AppData, repo: Repository) {
 
     fun preparerImport(texte: String) {
         val imp = Csv.import(texte)
-        if (imp == null || imp.estVide) Actions.toast(ctx, "❌ Impossible de lire les données. Utilise un backup moussa EI (texte commençant par « ## CHANTIERS »).")
+        if (imp == null || imp.estVide) Actions.toast(ctx, "❌ Impossible de lire les données. Choisis un fichier de sauvegarde moussa EI (.csv).")
         else importEnAttente = imp
     }
 
@@ -122,18 +121,9 @@ fun EcranReglages(data: AppData, repo: Repository) {
                     Actions.toast(ctx, "❌ Partage impossible")
                 }
             }
-            BoutonPlein("📋 Copier le backup", Couleurs.Vert) {
-                Actions.copier(ctx, Csv.export(repo.donnees), "✅ Backup copié ! Colle-le dans WhatsApp ou Notes.")
-            }
             BoutonPlein("📥 Importer un fichier de sauvegarde", Couleurs.Vert) { importer.launch(arrayOf("*/*")) }
 
-            HorizontalDivider(Modifier.padding(vertical = 6.dp))
-            Text("📲 Transférer depuis l'ancienne appli", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-            Ligne("1. Dans l'ancienne appli → Réglages → « Copier le backup »\n2. Reviens ici et colle le texte ci-dessous\n(ou importe directement le fichier CSV exporté)")
-            Champ("Coller le backup ici…", colle, { colle = it }, multiligne = true)
-            BoutonPlein("📋 Importer depuis le texte collé", Couleurs.Vert) {
-                if (colle.isBlank()) Actions.toast(ctx, "❌ Colle le backup dans le champ d'abord") else preparerImport(colle)
-            }
+            Ligne("Pour récupérer tes données : « Importer » puis choisis le fichier de sauvegarde dans Google Drive.")
         }
 
         Carte {
@@ -164,7 +154,6 @@ fun EcranReglages(data: AppData, repo: Repository) {
             onOk = {
                 repo.update { Gestion.importer(it, imp) }
                 importEnAttente = null
-                colle = ""
                 Actions.toast(ctx, "✅ Données importées !")
             },
             onAnnuler = { importEnAttente = null },

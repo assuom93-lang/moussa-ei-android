@@ -14,8 +14,10 @@ android {
         applicationId = "com.moussaei.gestion"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "4.0"
+        versionCode = 2
+        versionName = "4.1"
+        // Seulement les processeurs des téléphones actuels (allège l'APK du scanner de texte).
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
 
     // Clé de signature fixe : fournie par GitHub Actions depuis les secrets du dépôt
@@ -35,7 +37,10 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 : retire le code inutilisé des bibliothèques (APK beaucoup plus léger).
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (cle.exists()) signingConfig = signingConfigs.getByName("moussa")
         }
     }

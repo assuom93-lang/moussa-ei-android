@@ -43,6 +43,7 @@ fun EcranCamion(data: AppData, repo: Repository, recherche: String) {
     var ficheId by rememberSaveable { mutableStateOf<String?>(null) }
     var formulaire by rememberSaveable { mutableStateOf<String?>(null) }
     var affectation by rememberSaveable { mutableStateOf<String?>(null) }
+    var plusieurs by rememberSaveable { mutableStateOf(false) }
 
     val liste = Gestion.camionTrie(data).filter { m ->
         Gestion.correspond(
@@ -62,7 +63,12 @@ fun EcranCamion(data: AppData, repo: Repository, recherche: String) {
                 Compteur("Livrés auj.", livresAuj, Couleurs.BleuClair, Couleurs.Bleu, Modifier.weight(1f))
             }
         }
-        item { BoutonPlein("➕ Ajouter matériel") { formulaire = "" } }
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                BoutonPlein("➕ Un matériel", modifier = Modifier.weight(1f)) { formulaire = "" }
+                BoutonPlein("📋 Plusieurs / scanner", Couleurs.Orange, Modifier.weight(1f)) { plusieurs = true }
+            }
+        }
         if (liste.isEmpty()) item { Vide(if (recherche.isBlank()) "Aucun matériel dans le camion" else "Aucun résultat") }
         items(liste, key = { it.id }) { m ->
             CarteMateriel(
@@ -88,6 +94,7 @@ fun EcranCamion(data: AppData, repo: Repository, recherche: String) {
     }
     formulaire?.let { id -> FormulaireMateriel(data, repo, data.materiels.firstOrNull { it.id == id }) { formulaire = null } }
     affectation?.let { id -> data.materiels.firstOrNull { it.id == id }?.let { m -> AffectationChantiers(data, repo, m) { affectation = null } } }
+    if (plusieurs) AjoutPlusieurs(data, repo) { plusieurs = false }
     ConfirmationHost(confirmation)
 }
 
@@ -174,7 +181,6 @@ private fun FicheMateriel(data: AppData, repo: Repository, m: Materiel, onModifi
             Pastilles { PastilleCharge(m) }
             BoutonPetit("✏️ Modifier", Couleurs.Indigo) { onModifier() }
         }
-        BoutonContour("🔍 Rechercher « ${m.nom} » sur Google") { Actions.rechercherGoogle(ctx, m.nom) }
         BoutonPlein(if (m.recupere) "↩ Annuler le chargement" else "🚛 Marquer comme chargé", Couleurs.Vert) {
             repo.update { Gestion.basculerCharge(it, m.id, LocalDate.now()) }
             onFermer()

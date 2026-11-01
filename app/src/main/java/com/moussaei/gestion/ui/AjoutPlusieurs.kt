@@ -37,8 +37,9 @@ import com.moussaei.gestion.data.Repository
 import com.moussaei.gestion.util.Actions
 import java.io.File
 
+/** Camion → « Plusieurs / scanner » : liste rapide (1 ligne = 1 matériel) + lecture d'un bon en photo. */
 @Composable
-fun EcranOutils(data: AppData, repo: Repository) {
+fun AjoutPlusieurs(data: AppData, repo: Repository, onFermer: () -> Unit) {
     val ctx = LocalContext.current
     var liste by rememberSaveable { mutableStateOf("") }
     var chantierId by rememberSaveable { mutableStateOf("") }
@@ -48,7 +49,6 @@ fun EcranOutils(data: AppData, repo: Repository) {
     var resultatListe by rememberSaveable { mutableStateOf("") }
 
     var ocrTexte by rememberSaveable { mutableStateOf<String?>(null) }
-    var recherche by rememberSaveable { mutableStateOf("") }
 
     // Photo prise par l'appareil photo, rangée dans le cache de l'appli (jamais dans la galerie).
     val photoUri: Uri = remember {
@@ -71,12 +71,8 @@ fun EcranOutils(data: AppData, repo: Repository) {
 
     val photoOcr = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok -> if (ok) analyser(photoUri) }
     val galerieOcr = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> if (uri != null) analyser(uri) }
-    val photoLens = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok -> if (ok) Actions.photoVersLens(ctx, photoUri) }
 
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
+    FenetrePleine("📋 Ajouter plusieurs matériels", onFermer) {
         Carte {
             TitreCarte("📋 Liste matériel rapide")
             Ligne("Écris ta liste de matériel (1 par ligne), tout sera ajouté au camion d'un coup")
@@ -120,24 +116,7 @@ fun EcranOutils(data: AppData, repo: Repository) {
             }
         }
 
-        Carte {
-            TitreCarte("📸 Recherche visuelle")
-            Ligne("Trouve un article à partir d'une photo avec Google Lens")
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                BoutonPetit("📷 Photo → Lens", Couleurs.Vert, Modifier.weight(1f)) { photoLens.launch(photoUri) }
-                BoutonPetit("🔎 Ouvrir Lens", Couleurs.Bleu, Modifier.weight(1f)) { Actions.ouvrirLens(ctx) }
-            }
-        }
-
-        Carte {
-            TitreCarte("🔍 Rechercher un article")
-            Ligne("Tape un nom de produit pour le trouver sur Google")
-            Champ("Produit", recherche, { recherche = it }, "ex: Rubalise, Marteau piqueur…")
-            BoutonPlein("🔍 Rechercher sur Google") {
-                if (recherche.isBlank()) Actions.toast(ctx, "Tape un nom de produit") else Actions.rechercherGoogle(ctx, recherche)
-            }
-        }
-        Text(" ", fontSize = 4.sp)
+        BoutonPlein("✓ Terminé", Couleurs.Vert) { onFermer() }
     }
 
     if (choixC) ChoixChantier(data, { chantierId = it; choixC = false }) { choixC = false }

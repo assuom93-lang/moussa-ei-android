@@ -73,6 +73,22 @@ data class Heure(
     }
 }
 
+const val ARRET_CHANTIER = "chantier"
+const val ARRET_FOURNISSEUR = "fournisseur"
+const val ARRET_LIBRE = "libre"
+
+/**
+ * Un arrêt du trajet. [ref] = id du chantier / fournisseur (vide pour une adresse libre).
+ * Nom et adresse sont gardés en copie : l'arrêt reste valable même si la fiche est supprimée.
+ */
+data class ArretTrajet(
+    val id: String,
+    val type: String,
+    val ref: String = "",
+    val nom: String,
+    val adresse: String,
+)
+
 data class AppData(
     val chantiers: List<Chantier> = emptyList(),
     val fournisseurs: List<Fournisseur> = emptyList(),
@@ -82,6 +98,10 @@ data class AppData(
     val palettes: List<Palette> = emptyList(),
     /** Clé = date ISO aaaa-mm-jj. */
     val heures: Map<String, Heure> = emptyMap(),
+    /** Trajet en cours, dans l'ordre. */
+    val trajet: List<ArretTrajet> = emptyList(),
+    /** Adresse de départ du trajet ; vide = ma position actuelle. */
+    val trajetDepart: String = "",
 )
 
 enum class StatutEffectif { EN_LIVRAISON, EN_COURS, TERMINE }

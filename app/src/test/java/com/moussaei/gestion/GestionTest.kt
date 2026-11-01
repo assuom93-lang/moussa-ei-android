@@ -1,5 +1,6 @@
 package com.moussaei.gestion
 
+import com.moussaei.gestion.core.ARRET_LIBRE
 import com.moussaei.gestion.core.AppData
 import com.moussaei.gestion.core.Csv
 import com.moussaei.gestion.core.EMPLACEMENT_CABINE
@@ -96,6 +97,30 @@ class GestionTest {
 
         // Un import v3.21 (sans camion) garde le camion actuel.
         assertEquals(2, Gestion.importer(d2, imp).materiels.size)
+    }
+
+    @Test
+    fun trajet() {
+        val (d0, imp) = base()
+        var d = Gestion.ajouterChantierAuTrajet(d0, d0.chantiers[0]).first
+        assertEquals(Gestion.AjoutTrajet.DEJA, Gestion.ajouterChantierAuTrajet(d, d.chantiers[0]).second)
+        d = Gestion.ajouterAuTrajet(d, ARRET_LIBRE, "", "", "5 rue Libre").first
+        d = Gestion.deplacerArret(d, d.trajet[1].id, -1)
+        assertEquals(ARRET_LIBRE, d.trajet[0].type)
+        // Départ = ma position : pas d'origine dans le lien.
+        assertFalse(Gestion.liensGoogleMaps(d.trajet, "")[0].url.contains("origin="))
+        assertTrue(Gestion.liensGoogleMaps(d.trajet, "Dépôt")[0].url.contains("origin="))
+        val d2 = Gestion.changerDepart(d, "Dépôt")
+        assertEquals(d2, assertNotNullAndGet(Csv.import(Csv.export(d2))).data)
+        assertEquals(2, Gestion.importer(d2, imp).trajet.size)
+        // 12 arrêts : 2 parties (10 + 2)
+        var big = d0
+        repeat(12) { i -> big = Gestion.ajouterAuTrajet(big, ARRET_LIBRE, "", "", "Adresse $i").first }
+        assertEquals(listOf(1 to 10, 11 to 12), Gestion.liensGoogleMaps(big.trajet, "").map { it.premier to it.dernier })
+        // Recherche de palette : renvoie l'adresse du fournisseur.
+        val r = Gestion.rechercher(d0, "verte")
+        assertEquals(1, r.size)
+        assertEquals("76 Rue Test, 93700 Drancy", r[0].adresse)
     }
 
     @Test

@@ -64,6 +64,11 @@ object Csv {
         d.materiels.forEach { m ->
             l += row(m.id, m.nom, m.fournisseurId, m.notes, if (m.recupere) "1" else "0", m.dateRecupere, m.emplacement)
         }
+        l += ""
+        l += "## TRAJET"
+        l += "id,type,ref,nom,adresse"
+        if (d.trajetDepart.isNotBlank()) l += row("depart", "depart", "", "Départ", d.trajetDepart)
+        d.trajet.forEach { a -> l += row(a.id, a.type, a.ref, a.nom, a.adresse) }
         return l.joinToString("\n") + "\n"
     }
 
@@ -111,6 +116,8 @@ object Csv {
         val heures = LinkedHashMap<String, Heure>()
         val materiels = ArrayList<Materiel>()
         var contientMateriels = false
+        val trajet = ArrayList<ArretTrajet>()
+        var depart = ""
 
         var section = ""
         var headerDone = false
@@ -147,10 +154,14 @@ object Csv {
                     id = c(0), nom = c(1), fournisseurId = c(2), notes = c(3), recupere = c(4) == "1",
                     dateRecupere = c(5), emplacement = c(6),
                 )
+                "TRAJET" -> if (r.size >= 5 && c(0).isNotEmpty()) {
+                    if (c(1) == "depart") depart = c(4)
+                    else trajet += ArretTrajet(id = c(0), type = c(1), ref = c(2), nom = c(3), adresse = c(4))
+                }
             }
         }
         return Import(
-            AppData(chantiers, fournisseurs, materiels, archives, palettes, heures),
+            AppData(chantiers, fournisseurs, materiels, archives, palettes, heures, trajet, depart),
             contientMateriels,
         )
     }

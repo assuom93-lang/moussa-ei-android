@@ -18,6 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.padding
+import com.moussaei.gestion.core.ARRET_CHANTIER
 import com.moussaei.gestion.core.AppData
 import com.moussaei.gestion.core.Chantier
 import com.moussaei.gestion.core.Gestion
@@ -42,7 +44,7 @@ fun EcranChantiers(data: AppData, repo: Repository, recherche: String) {
     ) {
         item { BoutonPlein("➕ Ajouter un chantier") { formulaire = "" } }
         if (liste.isEmpty()) item { Vide(if (recherche.isBlank()) "Aucun chantier" else "Aucun résultat") }
-        items(liste, key = { it.id }) { c -> CarteChantier(data, c) { ficheId = c.id } }
+        items(liste, key = { it.id }) { c -> CarteChantier(data, repo, c) { ficheId = c.id } }
     }
 
     ficheId?.let { id ->
@@ -71,7 +73,7 @@ fun PastilleStatut(s: StatutEffectif) = when (s) {
 }
 
 @Composable
-private fun CarteChantier(data: AppData, c: Chantier, onClick: () -> Unit) {
+private fun CarteChantier(data: AppData, repo: Repository, c: Chantier, onClick: () -> Unit) {
     val s = Gestion.statut(data, c)
     val nb = Gestion.materielsValides(data, c).size
     Carte(
@@ -87,6 +89,9 @@ private fun CarteChantier(data: AppData, c: Chantier, onClick: () -> Unit) {
         Pastilles {
             Pastille("$nb matériel" + (if (nb > 1) "s" else ""), Couleurs.BleuClair, Couleurs.Bleu)
             PastilleStatut(s)
+        }
+        if (s != StatutEffectif.TERMINE && c.adresse.isNotBlank()) {
+            BoutonTrajet(data, repo, ARRET_CHANTIER, c.id, Gestion.nomAffiche(c), c.adresse, Modifier.fillMaxWidth().padding(top = 4.dp))
         }
     }
 }
@@ -106,6 +111,10 @@ private fun FicheChantier(data: AppData, repo: Repository, c: Chantier, onModifi
             LienTel(c.tel)
             Note(c.notes)
             Pastilles { PastilleStatut(s) }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                BoutonPetit("📍 Maps", Couleurs.Bleu, Modifier.weight(1f)) { Actions.ouvrirAdresse(ctx, c.adresse) }
+                BoutonTrajet(data, repo, ARRET_CHANTIER, c.id, Gestion.nomAffiche(c), c.adresse, Modifier.weight(1f))
+            }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 BoutonPetit("✏️ Modifier", Couleurs.Indigo, Modifier.weight(1f)) { onModifier() }
                 if (s == StatutEffectif.TERMINE) {

@@ -9,11 +9,11 @@ import androidx.compose.runtime.mutableStateOf
 import com.moussaei.gestion.rappel.Rappel
 import com.moussaei.gestion.ui.EcranPrincipal
 import com.moussaei.gestion.ui.MoussaTheme
-import com.moussaei.gestion.ui.Onglet
+import com.moussaei.gestion.ui.Ecran
 
 class MainActivity : ComponentActivity() {
 
-    private val ongletDemande = mutableStateOf<Onglet?>(null)
+    private val ecranDemande = mutableStateOf<Ecran?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -23,8 +23,8 @@ class MainActivity : ComponentActivity() {
             MoussaTheme {
                 EcranPrincipal(
                     repo = MoussaApp.instance.repo,
-                    ongletDemande = ongletDemande.value,
-                    onOngletConsomme = { ongletDemande.value = null },
+                    ecranDemande = ecranDemande.value,
+                    onEcranConsomme = { ecranDemande.value = null },
                 )
             }
         }
@@ -37,6 +37,6 @@ class MainActivity : ComponentActivity() {
 
     private fun lireIntent(intent: Intent?) {
         val o = intent?.getStringExtra(Rappel.EXTRA_ONGLET) ?: return
-        ongletDemande.value = Onglet.entries.firstOrNull { it.name.equals(o, ignoreCase = true) }
+        ecranDemande.value = Ecran.entries.firstOrNull { it.name.equals(o, ignoreCase = true) }
     }
 }

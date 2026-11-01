@@ -3,10 +3,8 @@
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Pour trouver Google Lens / l'appli Google (Android 11+). -->
+    <!-- Pour trouver l'appareil photo (Android 11+). -->
     <queries>
-        <package android:name="com.google.ar.lens" />
-        <package android:name="com.google.android.googlequicksearchbox" />
         <intent>
             <action android:name="android.media.action.IMAGE_CAPTURE" />
         </intent>

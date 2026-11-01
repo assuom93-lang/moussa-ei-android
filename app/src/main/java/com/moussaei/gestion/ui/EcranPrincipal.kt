@@ -1,21 +1,20 @@
 package com.moussaei.gestion.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.ScrollableTabRow
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,33 +30,32 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.moussaei.gestion.core.Gestion
 import com.moussaei.gestion.data.Repository
 
-enum class Onglet(val icone: String, val libelle: String, val avecRecherche: Boolean) {
+/** Les parties de l'appli, ouvertes depuis les tuiles de l'accueil. */
+enum class Ecran(val icone: String, val titre: String, val avecRecherche: Boolean) {
+    TRAJET("🗺️", "Trajet", false),
     CHANTIERS("🏗️", "Chantiers", true),
-    CAMION("🚚", "Camion", true),
-    FOURNISSEURS("📦", "Fourn.", true),
+    FOURNISSEURS("📦", "Fournisseurs", true),
     PALETTES("🪵", "Palettes", true),
+    CAMION("🚚", "Camion", true),
     HEURES("⏰", "Heures", false),
-    ARCHIVES("📂", "Archives", true),
-    OUTILS("🔧", "Outils", false),
+    HISTORIQUE("📂", "Historique", true),
     REGLAGES("⚙️", "Réglages", false),
 }
 
 @Composable
-fun EcranPrincipal(repo: Repository, ongletDemande: Onglet?, onOngletConsomme: () -> Unit) {
+fun EcranPrincipal(repo: Repository, ecranDemande: Ecran?, onEcranConsomme: () -> Unit) {
     val data by repo.data.collectAsState()
-    var onglet by rememberSaveable { mutableStateOf(Onglet.CHANTIERS) }
+    var ecran by rememberSaveable { mutableStateOf<Ecran?>(null) } // null = accueil
     var recherche by rememberSaveable { mutableStateOf("") }
-    var itineraire by rememberSaveable { mutableStateOf(false) }
 
-    LaunchedEffect(ongletDemande) {
-        if (ongletDemande != null) {
-            onglet = ongletDemande
-            onOngletConsomme()
-        }
+    fun ouvrir(e: Ecran?, q: String = "") { ecran = e; recherche = q }
+
+    LaunchedEffect(ecranDemande) {
+        if (ecranDemande != null) { ouvrir(ecranDemande); onEcranConsomme() }
     }
+    BackHandler(enabled = ecran != null) { ouvrir(null) }
 
     Column(
         Modifier
@@ -66,59 +64,27 @@ fun EcranPrincipal(repo: Repository, ongletDemande: Onglet?, onOngletConsomme: (
             .imePadding(),
     ) {
         // En-tête bleu
-        Column(Modifier.background(MaterialTheme.colorScheme.primary).statusBarsPadding()) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("moussa EI", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 22.sp, modifier = Modifier.weight(1f))
-                Text(
-                    "🗺️",
-                    fontSize = 22.sp,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color.White.copy(alpha = 0.2f))
-                        .clickable { itineraire = true }
-                        .padding(horizontal = 12.dp, vertical = 4.dp),
-                )
-            }
-            ScrollableTabRow(
-                selectedTabIndex = onglet.ordinal,
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = Color.White,
-                edgePadding = 4.dp,
-            ) {
-                Onglet.entries.forEach { o ->
-                    val badge = if (o == Onglet.CAMION) Gestion.nbACharger(data) else 0
-                    Tab(
-                        selected = onglet == o,
-                        onClick = { onglet = o; recherche = "" },
-                        text = {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(o.icone, fontSize = 18.sp)
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(o.libelle, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                    if (badge > 0) {
-                                        Text(
-                                            badge.toString(),
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White,
-                                            modifier = Modifier
-                                                .padding(start = 4.dp)
-                                                .clip(RoundedCornerShape(10.dp))
-                                                .background(Couleurs.Rouge)
-                                                .padding(horizontal = 5.dp, vertical = 1.dp),
-                                        )
-                                    }
-                                }
-                            }
-                        },
-                        selectedContentColor = Color.White,
-                        unselectedContentColor = Color.White.copy(alpha = 0.7f),
-                    )
-                }
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.primary)
+                .statusBarsPadding()
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val e = ecran
+            if (e == null) {
+                Text("moussa EI", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 22.sp, modifier = Modifier.weight(1f).padding(start = 8.dp))
+                BoutonEntete("⚙️") { ouvrir(Ecran.REGLAGES) }
+            } else {
+                BoutonEntete("←") { ouvrir(null) }
+                Text(e.icone + " " + e.titre, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp, modifier = Modifier.weight(1f).padding(start = 6.dp))
+                if (e != Ecran.TRAJET) BoutonEntete("🗺️") { ouvrir(Ecran.TRAJET) }
             }
         }
 
-        if (onglet.avecRecherche) {
+        val e = ecran
+        if (e != null && e.avecRecherche) {
             OutlinedTextField(
                 value = recherche,
                 onValueChange = { recherche = it },
@@ -137,18 +103,31 @@ fun EcranPrincipal(repo: Repository, ongletDemande: Onglet?, onOngletConsomme: (
         }
 
         Column(Modifier.weight(1f).navigationBarsPadding()) {
-            when (onglet) {
-                Onglet.CHANTIERS -> EcranChantiers(data, repo, recherche)
-                Onglet.CAMION -> EcranCamion(data, repo, recherche)
-                Onglet.FOURNISSEURS -> EcranFournisseurs(data, repo, recherche)
-                Onglet.PALETTES -> EcranPalettes(data, repo, recherche)
-                Onglet.HEURES -> EcranHeures(data, repo)
-                Onglet.ARCHIVES -> EcranArchives(data, repo, recherche)
-                Onglet.OUTILS -> EcranOutils(data, repo)
-                Onglet.REGLAGES -> EcranReglages(data, repo)
+            when (e) {
+                null -> EcranAccueil(data, repo, onOuvrir = { ec, q -> ouvrir(ec, q) })
+                Ecran.TRAJET -> EcranTrajet(data, repo)
+                Ecran.CHANTIERS -> EcranChantiers(data, repo, recherche)
+                Ecran.FOURNISSEURS -> EcranFournisseurs(data, repo, recherche)
+                Ecran.PALETTES -> EcranPalettes(data, repo, recherche)
+                Ecran.CAMION -> EcranCamion(data, repo, recherche)
+                Ecran.HEURES -> EcranHeures(data, repo)
+                Ecran.HISTORIQUE -> EcranArchives(data, repo, recherche)
+                Ecran.REGLAGES -> EcranReglages(data, repo)
             }
         }
     }
+}
 
-    if (itineraire) ItineraireDialog(data) { itineraire = false }
+@Composable
+private fun BoutonEntete(texte: String, onClick: () -> Unit) {
+    Text(
+        texte,
+        color = Color.White,
+        fontSize = 22.sp,
+        modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color.White.copy(alpha = 0.18f))
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+    )
 }

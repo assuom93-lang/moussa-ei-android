@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.moussaei.gestion.core.ARRET_FOURNISSEUR
 import com.moussaei.gestion.core.AppData
 import com.moussaei.gestion.core.Gestion
 import com.moussaei.gestion.core.Palette
@@ -36,6 +37,7 @@ import com.moussaei.gestion.util.Actions
 
 @Composable
 fun EcranPalettes(data: AppData, repo: Repository, recherche: String) {
+    val ctx = LocalContext.current
     val confirmation = rememberConfirmation()
     var formulaire by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -63,6 +65,12 @@ fun EcranPalettes(data: AppData, repo: Repository, recherche: String) {
             Carte {
                 TitreCarte("🏭 " + (f?.nom?.trim() ?: "Fournisseur inconnu"))
                 if (f != null) LienAdresse(f.adresse)
+                if (f != null && f.adresse.isNotBlank()) {
+                    Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        BoutonPetit("📍 Maps", Couleurs.Bleu, Modifier.weight(1f)) { Actions.ouvrirAdresse(ctx, f.adresse) }
+                        BoutonTrajet(data, repo, ARRET_FOURNISSEUR, f.id, f.nom.trim(), f.adresse, Modifier.weight(1f))
+                    }
+                }
                 Column(Modifier.padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     pals.sortedWith { a, b -> Gestion.compareNoms(a.nom, b.nom) }.forEach { p ->
                         Row(

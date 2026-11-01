@@ -229,16 +229,63 @@ object Gestion {
             archives = n.archives,
             palettes = if (n.palettes.isNotEmpty()) n.palettes else actuel.palettes,
             heures = if (n.heures.isNotEmpty()) n.heures else actuel.heures,
+            trajet = if (n.trajet.isNotEmpty()) n.trajet else actuel.trajet,
+            trajetDepart = if (n.trajet.isNotEmpty() || n.trajetDepart.isNotBlank()) n.trajetDepart else actuel.trajetDepart,
         )
     }
 
-    // ---------- Itinéraire ----------
+    // ---------- Trajet ----------
 
     data class Arret(val nom: String, val adresse: String, val estChantier: Boolean)
 
-    /** Estimation de la v3.21 : ~45 min vers un chantier, ~30 min vers un fournisseur. */
-    fun minutesEstimees(arrets: List<Arret>): Int =
-        arrets.drop(1).sumOf { if (it.estChantier) 45 else 30 }
+    /** Arrêt mis à jour avec la fiche actuelle (nom / adresse modifiés depuis l'ajout). */
+    fun arretAJour(d: AppData, a: ArretTrajet): ArretTrajet = when (a.type) {
+        ARRET_CHANTIER -> d.chantiers.firstOrNull { it.id == a.ref }?.let { a.copy(nom = nomAffiche(it), adresse = it.adresse) } ?: a
+        ARRET_FOURNISSEUR -> d.fournisseurs.firstOrNull { it.id == a.ref }?.let { a.copy(nom = it.nom.trim(), adresse = it.adresse) } ?: a
+        else -> a
+    }
+
+    fun trajetAJour(d: AppData): List<ArretTrajet> = d.trajet.map { arretAJour(d, it) }
+
+    fun dansTrajet(d: AppData, type: String, ref: String): Boolean = d.trajet.any { it.type == type && it.ref == ref }
+
+    enum class AjoutTrajet { AJOUTE, DEJA, SANS_ADRESSE }
+
+    fun ajouterAuTrajet(d: AppData, type: String, ref: String, nom: String, adresse: String): Pair<AppData, AjoutTrajet> {
+        if (adresse.isBlank()) return d to AjoutTrajet.SANS_ADRESSE
+        if (ref.isNotBlank() && dansTrajet(d, type, ref)) return d to AjoutTrajet.DEJA
+        val a = ArretTrajet(newId(), type, ref, nom.trim().ifEmpty { adresse.trim() }, adresse.trim())
+        return d.copy(trajet = d.trajet + a) to AjoutTrajet.AJOUTE
+    }
+
+    fun ajouterChantierAuTrajet(d: AppData, c: Chantier) = ajouterAuTrajet(d, ARRET_CHANTIER, c.id, nomAffiche(c), c.adresse)
+
+    fun ajouterFournisseurAuTrajet(d: AppData, f: Fournisseur) = ajouterAuTrajet(d, ARRET_FOURNISSEUR, f.id, f.nom, f.adresse)
+
+    /** Ajoute ou retire (si déjà présent) un chantier / fournisseur. */
+    fun basculerDansTrajet(d: AppData, type: String, ref: String, nom: String, adresse: String): AppData =
+        if (dansTrajet(d, type, ref)) d.copy(trajet = d.trajet.filterNot { it.type == type && it.ref == ref })
+        else ajouterAuTrajet(d, type, ref, nom, adresse).first
+
+    fun retirerDuTrajet(d: AppData, id: String): AppData = d.copy(trajet = d.trajet.filterNot { it.id == id })
+
+    /** Déplace un arrêt d'un cran (-1 = monter, +1 = descendre). */
+    fun deplacerArret(d: AppData, id: String, sens: Int): AppData {
+        val l = d.trajet.toMutableList()
+        val i = l.indexOfFirst { it.id == id }
+        val j = i + sens
+        if (i < 0 || j < 0 || j >= l.size) return d
+        val tmp = l[i]; l[i] = l[j]; l[j] = tmp
+        return d.copy(trajet = l)
+    }
+
+    fun viderTrajet(d: AppData): AppData = d.copy(trajet = emptyList())
+
+    fun changerDepart(d: AppData, adresse: String): AppData = d.copy(trajetDepart = adresse.trim())
+
+    /** Estimation de la v3.21 : ~45 min vers un chantier, ~30 min vers un fournisseur ou une adresse. */
+    fun minutesEstimees(arrets: List<ArretTrajet>, depuisDepart: Boolean = true): Int =
+        (if (depuisDepart) arrets else arrets.drop(1)).sumOf { if (it.type == ARRET_CHANTIER) 45 else 30 }
 
     fun dureeTexte(min: Int): String {
         val h = min / 60
@@ -246,14 +293,76 @@ object Gestion {
         return if (h > 0) h.toString() + "h" + (if (m > 0) m.toString().padStart(2, '0') else "") else "$m min"
     }
 
-    fun urlGoogleMaps(arrets: List<Arret>): String {
-        fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8")
-        val sb = StringBuilder("https://www.google.com/maps/dir/?api=1")
-        sb.append("&origin=").append(enc(arrets.first().adresse))
-        sb.append("&destination=").append(enc(arrets.last().adresse))
-        val milieu = arrets.drop(1).dropLast(1)
-        if (milieu.isNotEmpty()) sb.append("&waypoints=").append(milieu.joinToString("%7C") { enc(it.adresse) })
-        sb.append("&travelmode=driving")
-        return sb.toString()
+    /** Google Maps accepte au plus 9 étapes intermédiaires + la destination dans un lien. */
+    const val ARRETS_MAX_PAR_LIEN = 10
+
+    data class PartieTrajet(val numero: Int, val premier: Int, val dernier: Int, val url: String)
+
+    private fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8")
+
+    /**
+     * Liens Google Maps du trajet. Départ vide = ma position actuelle (Maps la prend
+     * automatiquement quand il n'y a pas d'origine). Au-delà de 10 arrêts, le trajet est découpé :
+     * chaque partie repart du dernier arrêt de la précédente.
+     */
+    fun liensGoogleMaps(arrets: List<ArretTrajet>, depart: String): List<PartieTrajet> {
+        if (arrets.isEmpty()) return emptyList()
+        val parties = ArrayList<PartieTrajet>()
+        var origine: String? = depart.trim().ifEmpty { null }
+        var debut = 0
+        var numero = 1
+        while (debut < arrets.size) {
+            val fin = minOf(arrets.size, debut + ARRETS_MAX_PAR_LIEN)
+            val morceau = arrets.subList(debut, fin)
+            val sb = StringBuilder("https://www.google.com/maps/dir/?api=1")
+            if (origine != null) sb.append("&origin=").append(enc(origine))
+            sb.append("&destination=").append(enc(morceau.last().adresse))
+            val milieu = morceau.dropLast(1)
+            if (milieu.isNotEmpty()) sb.append("&waypoints=").append(milieu.joinToString("%7C") { enc(it.adresse) })
+            sb.append("&travelmode=driving")
+            parties += PartieTrajet(numero, debut + 1, fin, sb.toString())
+            origine = morceau.last().adresse
+            debut = fin
+            numero++
+        }
+        return parties
+    }
+
+    // ---------- Recherche globale (accueil) ----------
+
+    enum class TypeResultat { CHANTIER, FOURNISSEUR, PALETTE }
+
+    data class Resultat(
+        val type: TypeResultat,
+        val id: String,
+        val titre: String,
+        val detail: String,
+        val adresse: String,
+        /** Pour ➕ Trajet : chantier ou fournisseur visé (le fournisseur pour une palette). */
+        val typeArret: String,
+        val refArret: String,
+        val nomArret: String,
+    )
+
+    fun rechercher(d: AppData, q: String): List<Resultat> {
+        if (normaliser(q).isEmpty()) return emptyList()
+        val r = ArrayList<Resultat>()
+        chantiersTries(d).filter { correspond(q, it.nom, it.surnom, it.adresse, it.chef, it.notes) }.forEach { c ->
+            r += Resultat(TypeResultat.CHANTIER, c.id, nomAffiche(c), c.chef.trim(), c.adresse, ARRET_CHANTIER, c.id, nomAffiche(c))
+        }
+        fournisseursTries(d).filter { correspond(q, it.nom, it.adresse) }.forEach { f ->
+            r += Resultat(TypeResultat.FOURNISSEUR, f.id, f.nom.trim(), "", f.adresse, ARRET_FOURNISSEUR, f.id, f.nom.trim())
+        }
+        d.palettes.filter { p -> correspond(q, p.nom, p.note, fournisseur(d, p.fournisseurId)?.nom) }
+            .sortedWith { a, b -> compareNoms(a.nom, b.nom) }
+            .forEach { p ->
+                val f = fournisseur(d, p.fournisseurId)
+                r += Resultat(
+                    TypeResultat.PALETTE, p.id, p.nom,
+                    listOfNotNull(f?.nom?.trim(), p.note.ifBlank { null }).joinToString(" · "),
+                    f?.adresse ?: "", ARRET_FOURNISSEUR, f?.id ?: "", f?.nom?.trim() ?: "",
+                )
+            }
+        return r
     }
 }

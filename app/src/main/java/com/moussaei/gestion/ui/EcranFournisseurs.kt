@@ -16,6 +16,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.graphics.Color
+import com.moussaei.gestion.core.ARRET_FOURNISSEUR
 import com.moussaei.gestion.core.AppData
 import com.moussaei.gestion.core.Fournisseur
 import com.moussaei.gestion.core.Gestion
@@ -36,12 +40,17 @@ fun EcranFournisseurs(data: AppData, repo: Repository, recherche: String) {
         items(liste, key = { it.id }) { f ->
             val mats = data.materiels.filter { it.fournisseurId == f.id }
             val nbCharges = mats.count { it.recupere }
+            val nbPal = data.palettes.count { it.fournisseurId == f.id }
             Carte(onClick = { ficheId = f.id }) {
                 TitreCarte(f.nom.trim())
                 LienAdresse(f.adresse)
-                if (mats.isNotEmpty()) Pastilles {
-                    Pastille("${mats.size} matériel" + (if (mats.size > 1) "s" else ""), Couleurs.BleuClair, Couleurs.Bleu)
+                if (mats.isNotEmpty() || nbPal > 0) Pastilles {
+                    if (mats.isNotEmpty()) Pastille("${mats.size} matériel" + (if (mats.size > 1) "s" else ""), Couleurs.BleuClair, Couleurs.Bleu)
                     if (nbCharges > 0) Pastille("$nbCharges chargé" + (if (nbCharges > 1) "s" else ""), Couleurs.VertClair, Couleurs.VertFonce)
+                    if (nbPal > 0) Pastille("🪵 $nbPal palette" + (if (nbPal > 1) "s" else ""), Color(0xFFEDE4D8), Color(0xFF6B4F2A))
+                }
+                if (f.adresse.isNotBlank()) {
+                    BoutonTrajet(data, repo, ARRET_FOURNISSEUR, f.id, f.nom.trim(), f.adresse, Modifier.fillMaxWidth().padding(top = 4.dp))
                 }
             }
         }
@@ -57,12 +66,17 @@ fun EcranFournisseurs(data: AppData, repo: Repository, recherche: String) {
 
 @Composable
 private fun FicheFournisseur(data: AppData, repo: Repository, f: Fournisseur, onModifier: () -> Unit, onFermer: () -> Unit) {
+    val ctx = LocalContext.current
     val confirmation = rememberConfirmation()
     val mats = data.materiels.filter { it.fournisseurId == f.id }
     val palettes = data.palettes.filter { it.fournisseurId == f.id }
     FenetrePleine(f.nom.trim(), onFermer) {
         Carte {
             LienAdresse(f.adresse, avecCopie = true)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                BoutonPetit("📍 Maps", Couleurs.Bleu, Modifier.weight(1f)) { Actions.ouvrirAdresse(ctx, f.adresse) }
+                BoutonTrajet(data, repo, ARRET_FOURNISSEUR, f.id, f.nom.trim(), f.adresse, Modifier.weight(1f))
+            }
             BoutonPetit("✏️ Modifier", Couleurs.Indigo) { onModifier() }
         }
         SectionTitre("Matériels (${mats.size})")
