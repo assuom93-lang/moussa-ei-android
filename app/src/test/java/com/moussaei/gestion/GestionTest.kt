@@ -17,30 +17,30 @@ import java.time.LocalDate
 class GestionTest {
 
     // Extrait au format exact d'un export v3.21 (données fictives).
-    private val exportV321 = """
-        ## CHANTIERS
-        id,nom,surnom,adresse,chef,tel,notes,statut,materiels
-        _aaaaaaaa1,Chantier A ,Surnom A ,"1 Rue Exemple, 75001 Paris",Chef A ,06 00 00 00 01,,en_cours,
-        _aaaaaaaa2,Chantier B,,10 avenue Test,Chef B,0600000002,"Code porte ""B846""",en_cours,
-        _aaaaaaaa3,Chantier C,,"48°51'33.3""N 2°20'16.7""E",Chef C,07,,termine,
-
-        ## FOURNISSEURS
-        id,nom,adresse
-        _fffffff01,Dépôt ,"76 Rue Test, 93700 Drancy"
-        _fffffff02,Fournisseur 2,Ville
-
-        ## ARCHIVES
-        id,nom,fournisseur,chantier,dateLivraison
-        _arch00001,"Étais 1,70 x20",Inconnu,Chantier A,16/03/2026
-
-        ## PALETTES
-        id,nom,fournisseurId,note
-        _pal000001,SLM,_fffffff02,
-        _pal000002,Palette verte,_fffffff01,Angle vert ou côté
-
-        ## HEURES
-        date,debut,fin,cp,note
-    """.trimIndent()
+    private val exportV321 = listOf(
+        "## CHANTIERS",
+        "id,nom,surnom,adresse,chef,tel,notes,statut,materiels",
+        "_aaaaaaaa1,Chantier A ,Surnom A ,\"1 Rue Exemple, 75001 Paris\",Chef A ,06 00 00 00 01,,en_cours,",
+        "_aaaaaaaa2,Chantier B,,10 avenue Test,Chef B,0600000002,\"Code porte \"\"B846\"\"\",en_cours,",
+        "_aaaaaaaa3,Chantier C,,\"48°51'33.3\"\"N 2°20'16.7\"\"E\",Chef C,07,,termine,",
+        "",
+        "## FOURNISSEURS",
+        "id,nom,adresse",
+        "_fffffff01,Dépôt ,\"76 Rue Test, 93700 Drancy\"",
+        "_fffffff02,Fournisseur 2,Ville",
+        "",
+        "## ARCHIVES",
+        "id,nom,fournisseur,chantier,dateLivraison",
+        "_arch00001,\"Étais 1,70 x20\",Inconnu,Chantier A,16/03/2026",
+        "",
+        "## PALETTES",
+        "id,nom,fournisseurId,note",
+        "_pal000001,SLM,_fffffff02,",
+        "_pal000002,Palette verte,_fffffff01,Angle vert ou côté",
+        "",
+        "## HEURES",
+        "date,debut,fin,cp,note",
+    ).joinToString("\n")
 
     private fun base(): Pair<AppData, Csv.Import> {
         val imp = assertNotNullAndGet(Csv.import(exportV321))
