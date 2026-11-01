@@ -74,7 +74,12 @@ fun EcranPrincipal(repo: Repository, ecranDemande: Ecran?, onEcranConsomme: () -
         ) {
             val e = ecran
             if (e == null) {
-                Text("moussa EI", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 22.sp, modifier = Modifier.weight(1f).padding(start = 8.dp))
+                Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                    Text("moussa EI", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 22.sp)
+                    if (data.reglages.entreprise.isNotBlank()) {
+                        Text(data.reglages.entreprise, color = Color.White.copy(alpha = 0.8f), fontSize = 13.sp)
+                    }
+                }
                 BoutonEntete("⚙️") { ouvrir(Ecran.REGLAGES) }
             } else {
                 BoutonEntete("←") { ouvrir(null) }

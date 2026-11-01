@@ -72,6 +72,8 @@ fun EcranAccueil(data: AppData, repo: Repository, onOuvrir: (Ecran, String) -> U
 @Composable
 private fun ResultatsRecherche(data: AppData, repo: Repository, q: String, onOuvrir: (Ecran, String) -> Unit) {
     val ctx = LocalContext.current
+    var agences by rememberSaveable { mutableStateOf<String?>(null) }
+    agences?.let { e -> AgencesDialog(data, repo, e) { agences = null } }
     val res = Gestion.rechercher(data, q)
     if (res.isEmpty()) { Vide("Rien trouvé pour « $q »"); return }
     Ligne("${res.size} résultat" + (if (res.size > 1) "s" else ""))
@@ -85,10 +87,14 @@ private fun ResultatsRecherche(data: AppData, repo: Repository, q: String, onOuv
             TitreCarte("$icone ${r.titre}")
             if (r.detail.isNotBlank()) Ligne(r.detail)
             LienAdresse(r.adresse)
-            Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                BoutonPetit("📍 Maps", Couleurs.Bleu, Modifier.weight(1f)) { Actions.ouvrirAdresse(ctx, r.adresse) }
-                if (r.refArret.isNotBlank()) {
-                    BoutonTrajet(data, repo, r.typeArret, r.refArret, r.nomArret, r.adresse, Modifier.weight(1f))
+            if (r.type == Gestion.TypeResultat.PALETTE && r.adresse.isBlank() && r.enseigne.isNotBlank()) {
+                BoutonPetit("🏬 Voir les agences ${r.enseigne} (📍 / ➕ Trajet)", Couleurs.Bleu, Modifier.fillMaxWidth().padding(top = 4.dp)) { agences = r.enseigne }
+            } else if (r.adresse.isNotBlank()) {
+                Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    BoutonPetit("📍 Maps", Couleurs.Bleu, Modifier.weight(1f)) { Actions.ouvrirAdresse(ctx, r.adresse) }
+                    if (r.refArret.isNotBlank()) {
+                        BoutonTrajet(data, repo, r.typeArret, r.refArret, r.nomArret, r.adresse, Modifier.weight(1f))
+                    }
                 }
             }
         }
@@ -111,6 +117,18 @@ private fun Resume(data: AppData, onOuvrir: (Ecran, String) -> Unit) {
             else "Trajet : ${trajet.size} arrêt" + (if (trajet.size > 1) "s" else "") + " · ~" + Gestion.dureeTexte(Gestion.minutesEstimees(trajet)),
         ) { onOuvrir(Ecran.TRAJET, "") }
         LigneResume("🚚", if (aCharger == 0) "Rien à charger" else "$aCharger matériel" + (if (aCharger > 1) "s" else "") + " à charger") { onOuvrir(Ecran.CAMION, "") }
+        if (data.reglages.entreprise.isBlank() || data.reglages.depot.isBlank()) {
+            LigneResume("🏢", "Indique ton entreprise et ton dépôt", couleur = Couleurs.OrangeFonce) { onOuvrir(Ecran.REGLAGES, "") }
+        }
+        val nbRendre = Gestion.nbARendre(data)
+        if (nbRendre > 0) {
+            LigneResume(
+                "↩",
+                "$nbRendre palette" + (if (nbRendre > 1) "s" else "") + " à rendre : " +
+                    Gestion.aRendreParEnseigne(data).joinToString(", ") { (e, l) -> e + " " + l.sumOf { it.quantite } },
+                couleur = Couleurs.OrangeFonce,
+            ) { onOuvrir(Ecran.PALETTES, "") }
+        }
         LigneResume(
             "⏰",
             if (heuresOk) "Heures à jour" else "Heures à remplir : " + Heures.titreJour(jour),
@@ -143,7 +161,7 @@ private fun Tuiles(data: AppData, onOuvrir: (Ecran, String) -> Unit) {
     val tuiles = listOf(
         Triple(Ecran.CHANTIERS, "${data.chantiers.count { it.statut != com.moussaei.gestion.core.STATUT_TERMINE }} en cours", Couleurs.OrangeClair to Couleurs.OrangeFonce),
         Triple(Ecran.FOURNISSEURS, "${data.fournisseurs.size}", Couleurs.BleuClair to Couleurs.Bleu),
-        Triple(Ecran.PALETTES, "${data.palettes.size}", Color(0xFFEDE4D8) to Color(0xFF6B4F2A)),
+        Triple(Ecran.PALETTES, Gestion.nbARendre(data).let { if (it > 0) "$it à rendre" else "${data.palettes.size} types" }, FondPalette to CouleurPalette),
         Triple(Ecran.CAMION, Gestion.nbACharger(data).let { if (it == 0) "vide" else "$it à charger" }, Couleurs.RougeClair to Couleurs.RougeFonce),
         Triple(Ecran.HEURES, Heures.format(Heures.totalMois(data.heures, LocalDate.now().year, LocalDate.now().monthValue).total) + " ce mois", Couleurs.VertClair to Couleurs.VertFonce),
         Triple(Ecran.HISTORIQUE, "${data.archives.size} livrés", Couleurs.GrisClair to Couleurs.Gris),

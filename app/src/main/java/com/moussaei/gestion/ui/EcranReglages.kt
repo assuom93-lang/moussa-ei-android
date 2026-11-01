@@ -89,6 +89,18 @@ fun EcranReglages(data: AppData, repo: Repository) {
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        CarteEntrepriseDepot(data, repo)
+
+        Carte {
+            TitreCarte("🏬 Agences Île-de-France")
+            Ligne("Ajoute les agences Point P, Raboni, Loxam et Kiloutou d'Île-de-France des enseignes déjà dans tes fournisseurs (${repo.catalogue.size} agences connues). Tes fiches ne sont pas modifiées et rien n'est ajouté en double.")
+            BoutonPlein("➕ Ajouter les agences manquantes", Couleurs.Bleu) {
+                var n = 0
+                repo.update { d -> Gestion.ajouterAgences(d, repo.catalogue).also { n = it.second }.first }
+                Actions.toast(ctx, if (n == 0) "Toutes les agences sont déjà là" else "✅ $n agence" + (if (n > 1) "s ajoutées" else " ajoutée"))
+            }
+        }
+
         Carte {
             TitreCarte("⏰ Rappel heures de travail")
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -188,4 +200,35 @@ fun EcranReglages(data: AppData, repo: Repository) {
         }
         ConfirmationHost(confirmation)
     }
+}
+
+@Composable
+private fun CarteEntrepriseDepot(data: AppData, repo: Repository) {
+    val ctx = LocalContext.current
+    var entreprise by rememberSaveable(data.reglages.entreprise) { mutableStateOf(data.reglages.entreprise) }
+    var depot by rememberSaveable(data.reglages.depot) { mutableStateOf(data.reglages.depot) }
+    var choix by rememberSaveable { mutableStateOf(false) }
+    Carte(lisere = if (data.reglages.entreprise.isBlank() || data.reglages.depot.isBlank()) Couleurs.Orange else null) {
+        TitreCarte("🏢 Entreprise et dépôt")
+        Champ("Entreprise", entreprise, { entreprise = it }, "ex: le nom de ton entreprise")
+        Champ("Adresse du dépôt", depot, { depot = it }, "là où tu commences et finis la journée")
+        BoutonContour("📦 Prendre l'adresse d'un fournisseur") { choix = true }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Finir le trajet au dépôt", modifier = Modifier.weight(1f))
+            Switch(
+                checked = data.reglages.finirAuDepot,
+                onCheckedChange = { on -> repo.update { Gestion.modifierReglages(it, it.reglages.copy(finirAuDepot = on)) } },
+            )
+        }
+        BoutonPlein("Enregistrer", Couleurs.Vert) {
+            repo.update { Gestion.modifierReglages(it, it.reglages.copy(entreprise = entreprise.trim(), depot = depot.trim())) }
+            Actions.toast(ctx, "✅ Enregistré")
+        }
+    }
+    if (choix) ChoixDialog(
+        "Dépôt",
+        Gestion.fournisseursTries(data).filter { it.adresse.isNotBlank() }.map { Option(it.id, it.nom.trim(), it.adresse) },
+        onChoix = { id -> data.fournisseurs.firstOrNull { it.id == id }?.let { depot = it.adresse.trim() }; choix = false },
+        onFermer = { choix = false },
+    )
 }

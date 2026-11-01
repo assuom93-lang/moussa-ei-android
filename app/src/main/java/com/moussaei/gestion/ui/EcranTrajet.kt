@@ -65,7 +65,8 @@ fun EcranTrajet(data: AppData, repo: Repository) {
     var choixDepart by rememberSaveable { mutableStateOf(false) }
 
     val arrets = Gestion.trajetAJour(data)
-    val parties = Gestion.liensGoogleMaps(arrets, data.trajetDepart)
+    val arrivee = Gestion.arrivee(data)
+    val parties = Gestion.liensGoogleMaps(arrets, data.trajetDepart, arrivee)
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
@@ -110,6 +111,30 @@ fun EcranTrajet(data: AppData, repo: Repository) {
             }
         }
 
+        // Arrivée : le dépôt
+        Carte(lisere = Couleurs.Vert) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Fin de journée", fontSize = 12.sp, color = Couleurs.Gris)
+                    Text(
+                        when {
+                            data.reglages.depot.isBlank() -> "Dépôt non renseigné (Réglages)"
+                            data.reglages.finirAuDepot -> "🏁 Retour au dépôt"
+                            else -> "Pas de retour au dépôt"
+                        },
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    if (data.reglages.depot.isNotBlank()) Text(data.reglages.depot, fontSize = 12.sp, color = Couleurs.Gris)
+                }
+                if (data.reglages.depot.isNotBlank()) {
+                    androidx.compose.material3.Switch(
+                        checked = data.reglages.finirAuDepot,
+                        onCheckedChange = { on -> repo.update { Gestion.modifierReglages(it, it.reglages.copy(finirAuDepot = on)) } },
+                    )
+                }
+            }
+        }
+
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             BoutonPetit("➕ Chantiers / fournisseurs", Couleurs.Indigo, Modifier.weight(1f)) { choixArrets = true }
             BoutonPetit("✏️ Autre adresse", Couleurs.Indigo, Modifier.weight(1f)) { adresseLibre = true }
@@ -118,7 +143,7 @@ fun EcranTrajet(data: AppData, repo: Repository) {
         if (parties.size == 1) {
             BoutonPlein("🚀 Ouvrir dans Google Maps", Couleurs.Vert) { Actions.ouvrirUrl(ctx, parties[0].url) }
         } else if (parties.size > 1) {
-            Ligne("Google Maps accepte 10 arrêts par trajet : ta tournée est découpée en ${parties.size} parties. Lance la partie suivante quand tu as fini la précédente.")
+            Ligne("Google Maps accepte 10 arrêts par lien : ta tournée est découpée en ${parties.size} parties. Lance la partie suivante quand tu as fini la précédente.")
             parties.forEach { p ->
                 BoutonPlein("🚀 Partie ${p.numero} : arrêts ${p.premier} à ${p.dernier}", Couleurs.Vert) { Actions.ouvrirUrl(ctx, p.url) }
             }

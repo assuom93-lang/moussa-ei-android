@@ -124,6 +124,30 @@ class GestionTest {
     }
 
     @Test
+    fun enseignesEtPalettesARendre() {
+        val (d0, _) = base()
+        assertEquals("Point P", Gestion.devinerEnseigne("Points P (P.P) Aubervilliers"))
+        assertEquals("Loxam", Gestion.devinerEnseigne("Loxam stade de France "))
+        assertEquals("", Gestion.devinerEnseigne("Dépôt "))
+        val d = d0.copy(fournisseurs = d0.fournisseurs + com.moussaei.gestion.core.Fournisseur("_pp1", "Points P (P.P) Aubervilliers", "Face au, 29 Quai Lucien Lefranc, 93300 Aubervilliers"))
+        val cat = Gestion.lireCatalogue("enseigne,nom,adresse\nPoint P,Point P Aubervilliers,\"29 Quai Lucien Lefranc, 93300 Aubervilliers\"\nPoint P,Point P Bobigny,\"1 rue Test, 93000 Bobigny\"\nBigmat,Bigmat,\"1 rue X, 93000 Bobigny\"\n")
+        val m = Gestion.migrer(d, cat)
+        assertEquals(2, Gestion.agencesDe(m, "Point P").size) // doublon Aubervilliers évité, Bigmat ignoré
+        assertEquals("76 Rue Test, 93700 Drancy", m.reglages.depot) // fournisseur « Dépôt »
+        assertEquals(m, Gestion.migrer(m, cat))
+        var r = Gestion.recupererPalettes(m, "Point P", "SLM", 2, "", LocalDate.of(2026, 11, 2))
+        r = Gestion.recupererPalettes(r, "point p", "", 1, "", LocalDate.of(2026, 11, 2))
+        assertEquals(3, Gestion.nbARendre(r))
+        assertEquals(1, Gestion.aRendreParEnseigne(r).size)
+        r = Gestion.marquerRendue(r, r.aRendre.first().id, LocalDate.of(2026, 11, 3))
+        assertEquals(2, Gestion.nbARendre(r))
+        assertEquals(r, assertNotNullAndGet(Csv.import(Csv.export(r))).data)
+        // Le trajet finit au dépôt.
+        val t = Gestion.ajouterAuTrajet(r, ARRET_LIBRE, "", "", "5 rue Libre").first
+        assertTrue(Gestion.liensGoogleMaps(t.trajet, "", Gestion.arrivee(t))[0].url.contains("destination=76+Rue+Test"))
+    }
+
+    @Test
     fun heures() {
         assertEquals(8.5, Heures.total(Heure("06:30", "16:00"))!!, 0.001)
         assertEquals("8h45", Heures.format(Heures.total(Heure("07:10", "16:55"))))

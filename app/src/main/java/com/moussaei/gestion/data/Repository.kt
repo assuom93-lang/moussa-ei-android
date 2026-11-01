@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.core.util.AtomicFile
 import com.moussaei.gestion.core.AppData
 import com.moussaei.gestion.core.Csv
+import com.moussaei.gestion.core.Gestion
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -28,11 +29,22 @@ import java.time.LocalDate
  */
 class Repository(context: Context) {
 
+    private val appContext = context.applicationContext
     private val dir: File = context.filesDir
     private val fichier = AtomicFile(File(dir, "donnees.csv"))
     private val dossierSauvegardes = File(dir, "sauvegardes")
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val ecriture = Mutex()
+
+    /** Agences Île-de-France des grandes enseignes (assets/agences_idf.csv). */
+    val catalogue: List<Gestion.AgenceCatalogue> by lazy {
+        try {
+            appContext.assets.open("agences_idf.csv").use { Gestion.lireCatalogue(String(it.readBytes(), Charsets.UTF_8)) }
+        } catch (e: Exception) {
+            Log.e(TAG, "Catalogue des agences illisible", e)
+            emptyList()
+        }
+    }
 
     private val _data = MutableStateFlow(charger())
     val data: StateFlow<AppData> = _data.asStateFlow()
@@ -41,16 +53,23 @@ class Repository(context: Context) {
 
     private fun charger(): AppData = try {
         val f = File(dir, "donnees.csv")
-        if (!f.exists()) AppData()
+        if (!f.exists()) AppData(reglages = com.moussaei.gestion.core.Reglages(version = com.moussaei.gestion.core.VERSION_DONNEES))
         else Csv.import(String(fichier.readFully(), Charsets.UTF_8))?.data ?: AppData()
     } catch (e: Exception) {
         Log.e(TAG, "Lecture des données impossible", e)
         AppData()
     }
 
+    init {
+        // Mise à niveau des données (v4.2 : enseignes, agences, dépôt) dès le démarrage.
+        if (_data.value.reglages.version < com.moussaei.gestion.core.VERSION_DONNEES) update { it }
+    }
+
     /** Applique une modification puis enregistre. */
     fun update(transform: (AppData) -> AppData) {
-        _data.update(transform)
+        // migrer() ne fait rien si les données sont déjà à jour ; sinon (import d'un ancien
+        // fichier) il complète enseignes et agences.
+        _data.update { Gestion.migrer(transform(it), catalogue) }
         enregistrer()
     }
 

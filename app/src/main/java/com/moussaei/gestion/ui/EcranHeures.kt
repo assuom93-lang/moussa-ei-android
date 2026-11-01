@@ -258,7 +258,12 @@ private fun VueMois(
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         BoutonContour("📍 Dernier jour", Modifier.weight(1f)) { onDernier() }
         BoutonPlein("📤 Export mois", modifier = Modifier.weight(1f)) {
-            Actions.partagerTexte(ctx, "Heures " + Heures.mois(d.monthValue) + " " + d.year, Heures.recapMois(data.heures, d.year, d.monthValue))
+            val ent = data.reglages.entreprise
+            Actions.partagerTexte(
+                ctx,
+                "Heures " + Heures.mois(d.monthValue) + " " + d.year + (if (ent.isNotBlank()) " — $ent" else ""),
+                (if (ent.isNotBlank()) "$ent\n" else "") + Heures.recapMois(data.heures, d.year, d.monthValue),
+            )
         }
     }
 }

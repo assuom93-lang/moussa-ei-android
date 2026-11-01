@@ -17,6 +17,8 @@ object Csv {
         val data: AppData,
         /** Vrai si le texte contenait une section MATERIELS (export de l'appli native). */
         val contientMateriels: Boolean,
+        /** Vrai si le texte contenait des réglages (export v4.2 et plus). */
+        val contientReglages: Boolean = false,
     ) {
         val estVide: Boolean get() = data.chantiers.isEmpty() && data.fournisseurs.isEmpty()
     }
@@ -41,16 +43,16 @@ object Csv {
         }
         l += ""
         l += "## FOURNISSEURS"
-        l += "id,nom,adresse"
-        d.fournisseurs.forEach { f -> l += row(f.id, f.nom, f.adresse) }
+        l += "id,nom,adresse,enseigne"
+        d.fournisseurs.forEach { f -> l += row(f.id, f.nom, f.adresse, f.enseigne) }
         l += ""
         l += "## ARCHIVES"
         l += "id,nom,fournisseur,chantier,dateLivraison"
         d.archives.forEach { a -> l += row(a.id, a.nom, a.fournisseurNom, a.chantiersNom, a.dateLivraison) }
         l += ""
         l += "## PALETTES"
-        l += "id,nom,fournisseurId,note"
-        d.palettes.forEach { p -> l += row(p.id, p.nom, p.fournisseurId, p.note) }
+        l += "id,nom,fournisseurId,note,enseigne"
+        d.palettes.forEach { p -> l += row(p.id, p.nom, p.fournisseurId, p.note, p.enseigne) }
         l += ""
         l += "## HEURES"
         l += "date,debut,fin,cp,note"
@@ -69,6 +71,20 @@ object Csv {
         l += "id,type,ref,nom,adresse"
         if (d.trajetDepart.isNotBlank()) l += row("depart", "depart", "", "Départ", d.trajetDepart)
         d.trajet.forEach { a -> l += row(a.id, a.type, a.ref, a.nom, a.adresse) }
+        l += ""
+        l += "## A_RENDRE"
+        l += "id,enseigne,type,quantite,dateRecup,rendue,dateRendue,note"
+        d.aRendre.forEach { p ->
+            l += row(p.id, p.enseigne, p.type, p.quantite.toString(), p.dateRecup, if (p.rendue) "1" else "0", p.dateRendue, p.note)
+        }
+        l += ""
+        l += "## REGLAGES"
+        l += "id,valeur"
+        val r = d.reglages
+        l += row("entreprise", r.entreprise)
+        l += row("depot", r.depot)
+        l += row("finirAuDepot", if (r.finirAuDepot) "1" else "0")
+        l += row("version", r.version.toString())
         return l.joinToString("\n") + "\n"
     }
 
@@ -118,6 +134,8 @@ object Csv {
         var contientMateriels = false
         val trajet = ArrayList<ArretTrajet>()
         var depart = ""
+        val aRendre = ArrayList<PaletteARendre>()
+        val reg = HashMap<String, String>()
 
         var section = ""
         var headerDone = false
@@ -144,9 +162,9 @@ object Csv {
                     notes = c(6), statut = c(7).ifEmpty { STATUT_EN_COURS },
                     materiels = c(8).split(';').map { it.trim() }.filter { it.isNotEmpty() },
                 )
-                "FOURNISSEURS" -> if (r.size >= 2 && c(0).isNotEmpty()) fournisseurs += Fournisseur(c(0), c(1), c(2))
+                "FOURNISSEURS" -> if (r.size >= 2 && c(0).isNotEmpty()) fournisseurs += Fournisseur(c(0), c(1), c(2), c(3))
                 "ARCHIVES" -> if (r.size >= 2 && c(0).isNotEmpty()) archives += Archive(c(0), c(1), c(2), c(3), c(4))
-                "PALETTES" -> if (r.size >= 2 && c(0).isNotEmpty()) palettes += Palette(c(0), c(1), c(2), c(3))
+                "PALETTES" -> if (r.size >= 2 && c(0).isNotEmpty()) palettes += Palette(c(0), c(1), c(2), c(3), c(4))
                 "HEURES" -> if (r.size >= 2 && DATE_KEY.matches(c(0))) heures[c(0)] = Heure(
                     debut = c(1).ifEmpty { Heure.DEBUT_PAR_DEFAUT }, fin = c(2), cp = c(3) == "1", note = c(4),
                 )
@@ -158,11 +176,25 @@ object Csv {
                     if (c(1) == "depart") depart = c(4)
                     else trajet += ArretTrajet(id = c(0), type = c(1), ref = c(2), nom = c(3), adresse = c(4))
                 }
+                "A_RENDRE" -> if (r.size >= 2 && c(0).isNotEmpty()) aRendre += PaletteARendre(
+                    id = c(0), enseigne = c(1), type = c(2), quantite = c(3).toIntOrNull() ?: 1,
+                    dateRecup = c(4), rendue = c(5) == "1", dateRendue = c(6), note = c(7),
+                )
+                "REGLAGES" -> if (r.size >= 2 && c(0).isNotEmpty()) reg[c(0)] = r.getOrNull(1).orEmpty()
             }
         }
         return Import(
-            AppData(chantiers, fournisseurs, materiels, archives, palettes, heures, trajet, depart),
+            AppData(
+                chantiers, fournisseurs, materiels, archives, palettes, heures, trajet, depart, aRendre,
+                Reglages(
+                    entreprise = reg["entreprise"].orEmpty().trim(),
+                    depot = reg["depot"].orEmpty().trim(),
+                    finirAuDepot = reg["finirAuDepot"] != "0",
+                    version = reg["version"]?.trim()?.toIntOrNull() ?: 0,
+                ),
+            ),
             contientMateriels,
+            contientReglages = reg.isNotEmpty(),
         )
     }
 

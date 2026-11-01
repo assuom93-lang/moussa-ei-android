@@ -93,11 +93,13 @@ object Gestion {
 
     // ---------- Fournisseurs ----------
 
-    fun ajouterFournisseur(d: AppData, nom: String, adresse: String): AppData =
-        d.copy(fournisseurs = d.fournisseurs + Fournisseur(newId(), nom, adresse))
+    fun ajouterFournisseur(d: AppData, nom: String, adresse: String, enseigne: String = ""): AppData =
+        d.copy(fournisseurs = d.fournisseurs + Fournisseur(newId(), nom, adresse, enseigne.trim()))
 
-    fun modifierFournisseur(d: AppData, id: String, nom: String, adresse: String): AppData =
-        d.copy(fournisseurs = d.fournisseurs.map { if (it.id == id) it.copy(nom = nom, adresse = adresse) else it })
+    fun modifierFournisseur(d: AppData, id: String, nom: String, adresse: String, enseigne: String? = null): AppData =
+        d.copy(fournisseurs = d.fournisseurs.map {
+            if (it.id == id) it.copy(nom = nom, adresse = adresse, enseigne = enseigne?.trim() ?: it.enseigne) else it
+        })
 
     fun supprimerFournisseur(d: AppData, id: String): AppData = d.copy(fournisseurs = d.fournisseurs.filterNot { it.id == id })
 
@@ -198,10 +200,12 @@ object Gestion {
 
     // ---------- Palettes ----------
 
-    fun enregistrerPalette(d: AppData, id: String, nom: String, fournisseurId: String, note: String): AppData =
-        if (id.isNotBlank() && d.palettes.any { it.id == id })
-            d.copy(palettes = d.palettes.map { if (it.id == id) it.copy(nom = nom, fournisseurId = fournisseurId, note = note) else it })
-        else d.copy(palettes = d.palettes + Palette(newId(), nom, fournisseurId, note))
+    fun enregistrerPalette(d: AppData, id: String, nom: String, enseigne: String, note: String): AppData {
+        val agence = agencesDe(d, enseigne).firstOrNull()?.id ?: ""
+        return if (id.isNotBlank() && d.palettes.any { it.id == id })
+            d.copy(palettes = d.palettes.map { if (it.id == id) it.copy(nom = nom, enseigne = enseigne, fournisseurId = agence, note = note) else it })
+        else d.copy(palettes = d.palettes + Palette(newId(), nom, agence, note, enseigne))
+    }
 
     fun supprimerPalette(d: AppData, id: String): AppData = d.copy(palettes = d.palettes.filterNot { it.id == id })
 
@@ -231,8 +235,151 @@ object Gestion {
             heures = if (n.heures.isNotEmpty()) n.heures else actuel.heures,
             trajet = if (n.trajet.isNotEmpty()) n.trajet else actuel.trajet,
             trajetDepart = if (n.trajet.isNotEmpty() || n.trajetDepart.isNotBlank()) n.trajetDepart else actuel.trajetDepart,
+            aRendre = if (n.aRendre.isNotEmpty()) n.aRendre else actuel.aRendre,
+            // Fichier ancien (sans réglages) : on garde les réglages actuels mais on refait la migration.
+            reglages = if (imp.contientReglages) n.reglages else actuel.reglages.copy(version = 0),
         )
     }
+
+    // ---------- Enseignes ----------
+
+    /** Enseigne d'un fournisseur ; sans enseigne, son propre nom. */
+    fun enseigneDe(f: Fournisseur): String = f.enseigne.trim().ifEmpty { f.nom.trim() }
+
+    fun memeEnseigne(a: String, b: String): Boolean = normaliser(a) == normaliser(b)
+
+    fun agencesDe(d: AppData, enseigne: String): List<Fournisseur> =
+        d.fournisseurs.filter { memeEnseigne(enseigneDe(it), enseigne) }.sortedWith { a, b -> compareNoms(a.nom, b.nom) }
+
+    /** Enseignes connues (une par groupe de fournisseurs), triées. */
+    fun enseignes(d: AppData): List<String> =
+        d.fournisseurs.groupBy { normaliser(enseigneDe(it)) }.values
+            .map { g -> enseigneDe(g.first()) }
+            .sortedWith { a, b -> compareNoms(a, b) }
+
+    /** Enseigne d'une palette (ancien format : déduite de son agence d'origine). */
+    fun enseigneDePalette(d: AppData, p: Palette): String =
+        p.enseigne.trim().ifEmpty { fournisseur(d, p.fournisseurId)?.let { enseigneDe(it) } ?: "" }
+
+    private val ENSEIGNES_CONNUES = listOf(
+        Regex("^points? ?p\\b|^\\(?p\\.p\\)?") to "Point P",
+        Regex("^loxam") to "Loxam",
+        Regex("^kiloutou") to "Kiloutou",
+        Regex("^raboni") to "Raboni",
+        Regex("^acipar") to "Acipar",
+        Regex("^prolians") to "Prolians",
+        Regex("derichebourg") to "Derichebourg",
+        Regex("^bpm\\b") to "BPM",
+    )
+
+    /** Devine l'enseigne d'après le nom (« Points P (P.P) Aubervilliers » → « Point P »), "" si inconnue. */
+    fun devinerEnseigne(nom: String): String {
+        val n = normaliser(nom)
+        return ENSEIGNES_CONNUES.firstOrNull { it.first.containsMatchIn(n) }?.second ?: ""
+    }
+
+    /** Remplit les enseignes manquantes (fournisseurs devinés, palettes d'après leur agence). */
+    fun completerEnseignes(d: AppData): AppData {
+        val f2 = d.fournisseurs.map { if (it.enseigne.isBlank()) it.copy(enseigne = devinerEnseigne(it.nom)) else it }
+        val d2 = d.copy(fournisseurs = f2)
+        return d2.copy(palettes = d2.palettes.map { p -> if (p.enseigne.isBlank()) p.copy(enseigne = enseigneDePalette(d2, p)) else p })
+    }
+
+    // ---------- Agences (catalogue Île-de-France) ----------
+
+    data class AgenceCatalogue(val enseigne: String, val nom: String, val adresse: String)
+
+    /** Catalogue au format CSV : enseigne,nom,adresse[,source] */
+    fun lireCatalogue(texte: String): List<AgenceCatalogue> =
+        Csv.parseRows(texte).drop(1).mapNotNull { r ->
+            val e = r.getOrNull(0)?.trim().orEmpty()
+            val n = r.getOrNull(1)?.trim().orEmpty()
+            val a = r.getOrNull(2)?.trim().orEmpty()
+            if (e.isEmpty() || n.isEmpty() || a.isEmpty()) null else AgenceCatalogue(e, n, a)
+        }
+
+    private fun cleAdresse(a: String): String = normaliser(a).replace(Regex("[^a-z0-9]"), "")
+
+    /** Code postal + numéro de rue, pour reconnaître une même agence écrite différemment. */
+    private fun signature(a: String): String? {
+        val n = normaliser(a)
+        val cp = Regex("\\b(7[5789]|9[1-5])\\d{3}\\b").find(n)?.value ?: return null
+        // Numéro suivi d'un type de voie, où qu'il soit (« Face au, 29 Quai … » → 29).
+        val num = Regex("\\b(\\d+)\\s*(bis|ter)?\\s*,?\\s*(rue|quai|av|avenue|bd|boulevard|chemin|chem|route|rte|allee|place|impasse|voie|cours|square|zi|za|zac|parc)\\b")
+            .find(n)?.groupValues?.get(1) ?: return null
+        return "$cp-$num"
+    }
+
+    private fun idAgence(a: AgenceCatalogue): String =
+        "_ag" + Integer.toHexString((normaliser(a.enseigne) + "|" + cleAdresse(a.adresse)).hashCode()).padStart(8, '0')
+
+    /**
+     * Ajoute les agences du catalogue des enseignes que l'utilisateur a déjà dans ses fournisseurs.
+     * Ne modifie aucune fiche existante et ne crée pas de doublon (même id, même adresse
+     * ou même code postal + numéro chez la même enseigne).
+     */
+    fun ajouterAgences(d: AppData, catalogue: List<AgenceCatalogue>): Pair<AppData, Int> {
+        val siennes = d.fournisseurs.map { normaliser(enseigneDe(it)) }.toSet()
+        val nouveaux = ArrayList<Fournisseur>()
+        val tous = d.fournisseurs.toMutableList()
+        catalogue.forEach { a ->
+            if (normaliser(a.enseigne) !in siennes) return@forEach
+            val id = idAgence(a)
+            val sig = signature(a.adresse)
+            val cle = cleAdresse(a.adresse)
+            val doublon = tous.any { f ->
+                f.id == id || (memeEnseigne(enseigneDe(f), a.enseigne) &&
+                    (cleAdresse(f.adresse) == cle || (sig != null && signature(f.adresse) == sig) ||
+                        // fiche sans code postal (« 41 Boulevard Anatole France ») : rue contenue dans l'adresse
+                        (cleAdresse(f.adresse).let { k -> k.length >= 12 && k[0].isDigit() && cle.contains(k) })))
+            }
+            if (!doublon) {
+                val f = Fournisseur(id, a.nom, a.adresse, a.enseigne)
+                nouveaux += f
+                tous += f
+            }
+        }
+        return d.copy(fournisseurs = d.fournisseurs + nouveaux) to nouveaux.size
+    }
+
+    /** Migration vers la v4.2 (une seule fois ; refaite après l'import d'un ancien fichier). */
+    fun migrer(d: AppData, catalogue: List<AgenceCatalogue>): AppData {
+        if (d.reglages.version >= VERSION_DONNEES) return d
+        var x = completerEnseignes(d)
+        x = ajouterAgences(x, catalogue).first
+        if (x.reglages.depot.isBlank()) {
+            // Le fournisseur « Dépôt » existant devient le dépôt de départ / retour.
+            val depot = d.fournisseurs.firstOrNull { normaliser(it.nom) == "depot" && it.adresse.isNotBlank() }
+            if (depot != null) x = x.copy(reglages = x.reglages.copy(depot = depot.adresse.trim()))
+        }
+        return x.copy(reglages = x.reglages.copy(version = VERSION_DONNEES))
+    }
+
+    fun modifierReglages(d: AppData, r: Reglages): AppData = d.copy(reglages = r.copy(version = d.reglages.version))
+
+    // ---------- Palettes à rendre ----------
+
+    fun recupererPalettes(d: AppData, enseigne: String, type: String, quantite: Int, note: String, aujourdhui: LocalDate): AppData =
+        d.copy(aRendre = listOf(PaletteARendre(newId(), enseigne.trim(), type.trim(), quantite.coerceAtLeast(1), dateFr(aujourdhui), note = note.trim())) + d.aRendre)
+
+    fun marquerRendue(d: AppData, id: String, aujourdhui: LocalDate): AppData =
+        d.copy(aRendre = d.aRendre.map { if (it.id == id) it.copy(rendue = true, dateRendue = dateFr(aujourdhui)) else it })
+
+    fun annulerRendue(d: AppData, id: String): AppData =
+        d.copy(aRendre = d.aRendre.map { if (it.id == id) it.copy(rendue = false, dateRendue = "") else it })
+
+    fun changerQuantite(d: AppData, id: String, delta: Int): AppData =
+        d.copy(aRendre = d.aRendre.map { if (it.id == id) it.copy(quantite = (it.quantite + delta).coerceAtLeast(1)) else it })
+
+    fun supprimerARendre(d: AppData, id: String): AppData = d.copy(aRendre = d.aRendre.filterNot { it.id == id })
+
+    fun nbARendre(d: AppData): Int = d.aRendre.filterNot { it.rendue }.sumOf { it.quantite }
+
+    /** Palettes encore à rendre, par enseigne (total), enseignes triées. */
+    fun aRendreParEnseigne(d: AppData): List<Pair<String, List<PaletteARendre>>> =
+        d.aRendre.filterNot { it.rendue }.groupBy { normaliser(it.enseigne) }.values
+            .map { g -> g.first().enseigne to g }
+            .sortedWith { a, b -> compareNoms(a.first, b.first) }
 
     // ---------- Trajet ----------
 
@@ -284,6 +431,9 @@ object Gestion {
     fun changerDepart(d: AppData, adresse: String): AppData = d.copy(trajetDepart = adresse.trim())
 
     /** Estimation de la v3.21 : ~45 min vers un chantier, ~30 min vers un fournisseur ou une adresse. */
+    /** Adresse d'arrivée du trajet (dépôt) ou "" si le retour au dépôt est désactivé. */
+    fun arrivee(d: AppData): String = if (d.reglages.finirAuDepot) d.reglages.depot else ""
+
     fun minutesEstimees(arrets: List<ArretTrajet>, depuisDepart: Boolean = true): Int =
         (if (depuisDepart) arrets else arrets.drop(1)).sumOf { if (it.type == ARRET_CHANTIER) 45 else 30 }
 
@@ -305,8 +455,11 @@ object Gestion {
      * automatiquement quand il n'y a pas d'origine). Au-delà de 10 arrêts, le trajet est découpé :
      * chaque partie repart du dernier arrêt de la précédente.
      */
-    fun liensGoogleMaps(arrets: List<ArretTrajet>, depart: String): List<PartieTrajet> {
-        if (arrets.isEmpty()) return emptyList()
+    fun liensGoogleMaps(arrets0: List<ArretTrajet>, depart: String, arrivee: String = ""): List<PartieTrajet> {
+        if (arrets0.isEmpty()) return emptyList()
+        val arrets = if (arrivee.isNotBlank() && cleAdresse(arrets0.last().adresse) != cleAdresse(arrivee))
+            arrets0 + ArretTrajet("_depot", ARRET_DEPOT, "", "Dépôt", arrivee.trim())
+        else arrets0
         val parties = ArrayList<PartieTrajet>()
         var origine: String? = depart.trim().ifEmpty { null }
         var debut = 0
@@ -342,6 +495,8 @@ object Gestion {
         val typeArret: String,
         val refArret: String,
         val nomArret: String,
+        /** Pour une palette : son enseigne (afficher toutes les agences). */
+        val enseigne: String = "",
     )
 
     fun rechercher(d: AppData, q: String): List<Resultat> {
@@ -353,14 +508,17 @@ object Gestion {
         fournisseursTries(d).filter { correspond(q, it.nom, it.adresse) }.forEach { f ->
             r += Resultat(TypeResultat.FOURNISSEUR, f.id, f.nom.trim(), "", f.adresse, ARRET_FOURNISSEUR, f.id, f.nom.trim())
         }
-        d.palettes.filter { p -> correspond(q, p.nom, p.note, fournisseur(d, p.fournisseurId)?.nom) }
+        d.palettes.filter { p -> correspond(q, p.nom, p.note, enseigneDePalette(d, p)) }
             .sortedWith { a, b -> compareNoms(a.nom, b.nom) }
             .forEach { p ->
-                val f = fournisseur(d, p.fournisseurId)
+                val e = enseigneDePalette(d, p)
+                val agences = agencesDe(d, e)
+                val unique = agences.singleOrNull()
                 r += Resultat(
                     TypeResultat.PALETTE, p.id, p.nom,
-                    listOfNotNull(f?.nom?.trim(), p.note.ifBlank { null }).joinToString(" · "),
-                    f?.adresse ?: "", ARRET_FOURNISSEUR, f?.id ?: "", f?.nom?.trim() ?: "",
+                    listOfNotNull(e.ifBlank { null }, p.note.ifBlank { null }, if (agences.size > 1) "${agences.size} agences" else null).joinToString(" · "),
+                    unique?.adresse ?: "", ARRET_FOURNISSEUR, unique?.id ?: "", unique?.nom?.trim() ?: "",
+                    enseigne = e,
                 )
             }
         return r
