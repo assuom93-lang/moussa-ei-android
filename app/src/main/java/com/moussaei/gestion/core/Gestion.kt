@@ -289,7 +289,8 @@ object Gestion {
 
     // ---------- Agences (catalogue Île-de-France) ----------
 
-    data class AgenceCatalogue(val enseigne: String, val nom: String, val adresse: String)
+    /** Agence du lexique ; [lien] = fiche officielle de l'agence (vide si inconnue). */
+    data class AgenceCatalogue(val enseigne: String, val nom: String, val adresse: String, val lien: String = "")
 
     /** Catalogue au format CSV : enseigne,nom,adresse[,source] */
     fun lireCatalogue(texte: String): List<AgenceCatalogue> =
@@ -297,7 +298,7 @@ object Gestion {
             val e = r.getOrNull(0)?.trim().orEmpty()
             val n = r.getOrNull(1)?.trim().orEmpty()
             val a = r.getOrNull(2)?.trim().orEmpty()
-            if (e.isEmpty() || n.isEmpty() || a.isEmpty()) null else AgenceCatalogue(e, n, a)
+            if (e.isEmpty() || n.isEmpty() || a.isEmpty()) null else AgenceCatalogue(e, n, a, r.getOrNull(3)?.trim().orEmpty())
         }
 
     private fun cleAdresse(a: String): String = normaliser(a).replace(Regex("[^a-z0-9]"), "")

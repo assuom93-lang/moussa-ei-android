@@ -33,6 +33,13 @@ fun CarteAgenceLexique(data: AppData, repo: Repository, a: Gestion.AgenceCatalog
             BoutonPetit("📍 Maps", Couleurs.Bleu, Modifier.weight(1f)) { Actions.ouvrirAdresse(ctx, a.adresse) }
             BoutonTrajet(data, repo, ARRET_LIBRE, Gestion.idAgence(a), a.nom, a.adresse, Modifier.weight(1f))
         }
+        // Fiche officielle (adresse et horaires à jour) ; pour PUM sans code connu : la recherche d'agences.
+        val lien = a.lien.ifBlank { if (Gestion.memeEnseigne(a.enseigne, "PUM")) "https://www.mypum.fr/agence/" else "" }
+        if (lien.isNotBlank()) {
+            BoutonContour("🌐 Voir sur " + android.net.Uri.parse(lien).host.orEmpty().removePrefix("www."), Modifier.fillMaxWidth()) {
+                Actions.ouvrirUrl(ctx, lien)
+            }
+        }
         BoutonContour("➕ Ajouter à mes fournisseurs", Modifier.fillMaxWidth()) {
             repo.update { Gestion.ajouterAuxFournisseurs(it, a) }
             Actions.toast(ctx, "✅ ${a.nom} ajouté à tes fournisseurs")
