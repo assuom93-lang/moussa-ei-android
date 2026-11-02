@@ -78,6 +78,19 @@ data class PaletteARendre(
     val note: String = "",
 )
 
+/** Produit du catalogue « Matériel » (rempli automatiquement depuis le camion et l'historique). */
+data class Produit(
+    val id: String,
+    val nom: String,
+    /** Fournisseur habituel (le dernier utilisé). */
+    val fournisseurId: String = "",
+    /** Nom du fichier photo dans files/photos ("" = pas de photo). */
+    val photo: String = "",
+    val note: String = "",
+    /** Clés d'autres noms fusionnés dans ce produit. */
+    val alias: List<String> = emptyList(),
+)
+
 data class Reglages(
     /** Nom de l'entreprise affiché dans l'appli (ex. l'employeur). */
     val entreprise: String = "",
@@ -87,9 +100,11 @@ data class Reglages(
     val finirAuDepot: Boolean = true,
     /** Version du format des données (migrations). */
     val version: Int = 0,
+    /** Clés des produits retirés du catalogue (ne reviennent pas automatiquement). */
+    val produitsMasques: Set<String> = emptySet(),
 )
 
-const val VERSION_DONNEES = 43
+const val VERSION_DONNEES = 44
 
 /** Une journée de travail. La clé (date aaaa-mm-jj) est portée par la map. */
 data class Heure(
@@ -137,6 +152,7 @@ data class AppData(
     val trajetDepart: String = "",
     val aRendre: List<PaletteARendre> = emptyList(),
     val reglages: Reglages = Reglages(),
+    val produits: List<Produit> = emptyList(),
 )
 
 enum class StatutEffectif { EN_LIVRAISON, EN_COURS, TERMINE }

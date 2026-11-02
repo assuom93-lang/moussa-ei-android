@@ -42,6 +42,8 @@ enum class Ecran(val icone: String, val titre: String, val avecRecherche: Boolea
     HEURES("⏰", "Heures", false),
     HISTORIQUE("📂", "Historique", true),
     LEXIQUE("📖", "Lexique des agences", true),
+    MATERIEL("🧱", "Matériel", true),
+    BON("📄", "Lire un bon", false),
     REGLAGES("⚙️", "Réglages", false),
 }
 
@@ -57,6 +59,8 @@ fun EcranPrincipal(repo: Repository, ecranDemande: Ecran?, onEcranConsomme: () -
         if (ecranDemande != null) { ouvrir(ecranDemande); onEcranConsomme() }
     }
     BackHandler(enabled = ecran != null) { ouvrir(null) }
+    // Bon reçu par « Partager » : on ouvre directement « Lire un bon ».
+    LaunchedEffect(BonEntrant.enAttente) { if (BonEntrant.enAttente) ouvrir(Ecran.BON) }
 
     Column(
         Modifier
@@ -119,6 +123,8 @@ fun EcranPrincipal(repo: Repository, ecranDemande: Ecran?, onEcranConsomme: () -
                 Ecran.HEURES -> EcranHeures(data, repo)
                 Ecran.HISTORIQUE -> EcranArchives(data, repo, recherche)
                 Ecran.LEXIQUE -> EcranLexique(data, repo, recherche)
+                Ecran.MATERIEL -> EcranMateriel(data, repo, recherche)
+                Ecran.BON -> EcranBon(data, repo)
                 Ecran.REGLAGES -> EcranReglages(data, repo)
             }
         }

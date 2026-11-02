@@ -87,7 +87,9 @@ class DemarrageTest {
         check(com.moussaei.gestion.core.Gestion.lexique(d, repo.catalogue).size > 100) { "lexique vide" }
         check(d.reglages.depot == "76 Rue Test, 93700 Drancy") { "dépôt : ${d.reglages.depot}" }
 
-        for (t in listOf("Trajet", "Chantiers", "Fournisseurs", "Palettes", "Camion", "Heures", "Historique", "Lexique des agences")) {
+        check(d.produits.any { it.nom == "Chaise" } && d.produits.any { it.nom == "Rubalise" }) { "catalogue matériel : ${d.produits.map { it.nom }}" }
+
+        for (t in listOf("Trajet", "Lire un bon", "Matériel", "Chantiers", "Fournisseurs", "Palettes", "Camion", "Heures", "Historique", "Lexique des agences")) {
             ouvrirTuile(t)
             retour()
         }
@@ -103,6 +105,19 @@ class DemarrageTest {
         // Palettes → « J'ai récupéré des palettes »
         ouvrirTuile("Palettes")
         compose.onNodeWithText("➕ J'ai récupéré des palettes").performScrollTo().performClick(); compose.waitForIdle()
+        compose.onAllNodesWithText("✕")[0].performClick(); compose.waitForIdle()
+        retour()
+
+        // Bon partagé (texte WhatsApp) → l'écran « Lire un bon » s'ouvre et conseille
+        compose.runOnUiThread { com.moussaei.gestion.ui.BonEntrant.texte = "Bon de commande\n- Coude PVC 100 x4\n- Sac ciment x5\n- Chaise" }
+        compose.waitForIdle()
+        compose.onAllNodesWithText("Où aller")[0].assertExists()
+        compose.onAllNodesWithText("Chaise")[0].assertExists()
+        retour()
+
+        // Matériel : fiche produit
+        ouvrirTuile("Matériel")
+        compose.onAllNodesWithText("Rubalise")[0].performScrollTo().performClick(); compose.waitForIdle()
         compose.onAllNodesWithText("✕")[0].performClick(); compose.waitForIdle()
         retour()
 

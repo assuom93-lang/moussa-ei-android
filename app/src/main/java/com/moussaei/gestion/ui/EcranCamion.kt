@@ -128,7 +128,10 @@ private fun CarteMateriel(
 ) {
     val chantiers = Gestion.chantiersDuMateriel(data, m.id)
     Carte(lisere = if (m.recupere) Couleurs.Vert else null, onClick = onClick) {
-        TitreCarte(m.nom)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.foundation.layout.Column(Modifier.weight(1f)) { TitreCarte(m.nom) }
+            IconePhoto(com.moussaei.gestion.core.Produits.photoDe(data, m.nom))
+        }
         Gestion.fournisseur(data, m.fournisseurId)?.let { Ligne("🏭 ${it.nom.trim()}") }
         if (chantiers.isNotEmpty()) Ligne("🏗️ → " + chantiers.joinToString(", ") { Gestion.nomAffiche(it) })
         Note(m.notes)
@@ -214,6 +217,10 @@ fun FormulaireMateriel(data: AppData, repo: Repository, existant: Materiel?, onF
 
     FenetrePleine(if (existant == null) "Ajouter matériel" else "Modifier le matériel", onFermer) {
         Champ("Nom du matériel *", nom, { nom = it }, "ex: CHAISE")
+        SuggestionsProduits(data, nom) { p ->
+            nom = p.nom
+            if (fournisseurId.isBlank()) fournisseurId = p.fournisseurId
+        }
         if (existant == null) {
             val ch = data.chantiers.firstOrNull { it.id == chantierId }
             ChampChoix("Chantier (optionnel)", ch?.let { Gestion.nomAffiche(it) } ?: "-- Aucun chantier --") { choixC = true }

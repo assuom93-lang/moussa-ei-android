@@ -236,6 +236,7 @@ object Gestion {
             trajet = if (n.trajet.isNotEmpty()) n.trajet else actuel.trajet,
             trajetDepart = if (n.trajet.isNotEmpty() || n.trajetDepart.isNotBlank()) n.trajetDepart else actuel.trajetDepart,
             aRendre = if (n.aRendre.isNotEmpty()) n.aRendre else actuel.aRendre,
+            produits = if (n.produits.isNotEmpty()) n.produits else actuel.produits,
             // Fichier ancien (sans réglages) : on garde les réglages actuels mais on refait la migration.
             reglages = if (imp.contientReglages) n.reglages else actuel.reglages.copy(version = 0),
         )
@@ -270,6 +271,7 @@ object Gestion {
         Regex("^prolians") to "Prolians",
         Regex("derichebourg") to "Derichebourg",
         Regex("^bpm\\b") to "BPM",
+        Regex("^pum\\b") to "PUM",
     )
 
     /** Devine l'enseigne d'après le nom (« Points P (P.P) Aubervilliers » → « Point P »), "" si inconnue. */
@@ -362,7 +364,8 @@ object Gestion {
                 if (depot != null) x = x.copy(reglages = x.reglages.copy(depot = depot.adresse.trim()))
             }
         }
-        x = retirerAgencesAuto(x, catalogue)
+        if (x.reglages.version < 43) x = retirerAgencesAuto(x, catalogue)
+        if (x.reglages.version < 44) x = completerEnseignes(x) // PUM ajouté aux enseignes connues
         return x.copy(reglages = x.reglages.copy(version = VERSION_DONNEES))
     }
 
@@ -398,7 +401,8 @@ object Gestion {
 
     fun ajouterAuxFournisseurs(d: AppData, a: AgenceCatalogue): AppData = ajouterAgences(d, listOf(a)).first
 
-    fun modifierReglages(d: AppData, r: Reglages): AppData = d.copy(reglages = r.copy(version = d.reglages.version))
+    fun modifierReglages(d: AppData, r: Reglages): AppData =
+        d.copy(reglages = r.copy(version = d.reglages.version, produitsMasques = d.reglages.produitsMasques))
 
     // ---------- Palettes à rendre ----------
 

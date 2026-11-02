@@ -158,6 +158,11 @@ private fun Tuiles(data: AppData, repo: Repository, onOuvrir: (Ecran, String) ->
         Couleurs.Bleu, Color.White, Modifier.fillMaxWidth(), grande = true,
     ) { onOuvrir(Ecran.TRAJET, "") }
 
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Tuile(Ecran.BON, "photo, PDF ou texte", Couleurs.Indigo, Color.White, Modifier.weight(1f)) { onOuvrir(Ecran.BON, "") }
+        Tuile(Ecran.MATERIEL, "${data.produits.size} produits", Color(0xFFFFEDD5), Color(0xFF9A3412), Modifier.weight(1f)) { onOuvrir(Ecran.MATERIEL, "") }
+    }
+
     val tuiles = listOf(
         Triple(Ecran.CHANTIERS, "${data.chantiers.count { it.statut != com.moussaei.gestion.core.STATUT_TERMINE }} en cours", Couleurs.OrangeClair to Couleurs.OrangeFonce),
         Triple(Ecran.FOURNISSEURS, "${data.fournisseurs.size}", Couleurs.BleuClair to Couleurs.Bleu),

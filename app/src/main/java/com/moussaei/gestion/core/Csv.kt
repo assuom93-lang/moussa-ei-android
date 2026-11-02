@@ -85,6 +85,11 @@ object Csv {
         l += row("depot", r.depot)
         l += row("finirAuDepot", if (r.finirAuDepot) "1" else "0")
         l += row("version", r.version.toString())
+        l += row("produitsMasques", r.produitsMasques.sorted().joinToString("|"))
+        l += ""
+        l += "## PRODUITS"
+        l += "id,nom,fournisseurId,photo,note,alias"
+        d.produits.forEach { p -> l += row(p.id, p.nom, p.fournisseurId, p.photo, p.note, p.alias.joinToString("|")) }
         return l.joinToString("\n") + "\n"
     }
 
@@ -136,6 +141,7 @@ object Csv {
         var depart = ""
         val aRendre = ArrayList<PaletteARendre>()
         val reg = HashMap<String, String>()
+        val produits = ArrayList<Produit>()
 
         var section = ""
         var headerDone = false
@@ -181,6 +187,10 @@ object Csv {
                     dateRecup = c(4), rendue = c(5) == "1", dateRendue = c(6), note = c(7),
                 )
                 "REGLAGES" -> if (r.size >= 2 && c(0).isNotEmpty()) reg[c(0)] = r.getOrNull(1).orEmpty()
+                "PRODUITS" -> if (r.size >= 2 && c(0).isNotEmpty()) produits += Produit(
+                    id = c(0), nom = c(1), fournisseurId = c(2), photo = c(3), note = c(4),
+                    alias = c(5).split('|').map { it.trim() }.filter { it.isNotEmpty() },
+                )
             }
         }
         return Import(
@@ -191,7 +201,9 @@ object Csv {
                     depot = reg["depot"].orEmpty().trim(),
                     finirAuDepot = reg["finirAuDepot"] != "0",
                     version = reg["version"]?.trim()?.toIntOrNull() ?: 0,
+                    produitsMasques = reg["produitsMasques"].orEmpty().split('|').map { it.trim() }.filter { it.isNotEmpty() }.toSet(),
                 ),
+                produits,
             ),
             contientMateriels,
             contientReglages = reg.isNotEmpty(),

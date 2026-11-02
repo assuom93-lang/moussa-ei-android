@@ -14,8 +14,8 @@ android {
         applicationId = "com.moussaei.gestion"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "4.3"
+        versionCode = 6
+        versionName = "4.4"
         // Seulement les processeurs des téléphones actuels (allège l'APK du scanner de texte).
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
@@ -88,6 +88,10 @@ dependencies {
 
     // Scanner de texte : reconnaissance SUR LE TÉLÉPHONE (modèle inclus, marche hors connexion)
     implementation("com.google.mlkit:text-recognition:16.0.1")
+    // Attendre ML Kit dans une coroutine (lecture des bons).
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
+    // Photos des produits : remettre les photos à l'endroit.
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
 
     testImplementation("junit:junit:4.13.2")
     // Test de démarrage : lance la vraie appli (Robolectric) et ouvre chaque écran.

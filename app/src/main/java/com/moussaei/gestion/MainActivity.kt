@@ -14,6 +14,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.mutableStateOf
 import com.moussaei.gestion.rappel.Rappel
+import com.moussaei.gestion.ui.BonEntrant
 import com.moussaei.gestion.ui.Ecran
 import com.moussaei.gestion.ui.EcranPrincipal
 import com.moussaei.gestion.ui.MoussaTheme
@@ -102,6 +103,19 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun lireIntent(intent: Intent?) {
+        if (intent?.action == Intent.ACTION_SEND) {
+            // Bon partagé depuis WhatsApp, mail, galerie… : photo, PDF ou texte.
+            val uri: android.net.Uri? = androidx.core.content.IntentCompat.getParcelableExtra(
+                intent, Intent.EXTRA_STREAM, android.net.Uri::class.java,
+            )
+            if (uri != null) {
+                BonEntrant.mime = intent.type ?: ""
+                BonEntrant.uri = uri
+            } else {
+                intent.getStringExtra(Intent.EXTRA_TEXT)?.let { BonEntrant.texte = it }
+            }
+            return
+        }
         val o = intent?.getStringExtra(Rappel.EXTRA_ONGLET) ?: return
         ecranDemande.value = Ecran.entries.firstOrNull { it.name.equals(o, ignoreCase = true) }
     }

@@ -69,7 +69,8 @@ class Repository(context: Context) {
     fun update(transform: (AppData) -> AppData) {
         // migrer() ne fait rien si les données sont déjà à jour ; sinon (import d'un ancien
         // fichier) il complète enseignes et agences.
-        _data.update { Gestion.migrer(transform(it), catalogue) }
+        // + le catalogue « Matériel » se remplit tout seul avec le camion et l'historique.
+        _data.update { com.moussaei.gestion.core.Produits.synchroniser(Gestion.migrer(transform(it), catalogue)) }
         enregistrer()
     }
 

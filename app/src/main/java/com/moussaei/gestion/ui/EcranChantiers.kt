@@ -187,6 +187,7 @@ private fun AjoutMaterielChantier(data: AppData, onAjouter: (String, String) -> 
         ChampChoix("Matériel du camion", sel?.nom ?: "-- Sélectionner un matériel --") { choix = true }
         Text("Ou créer un nouveau", modifier = Modifier.fillMaxWidth())
         Champ("Nom du nouveau matériel", nom, { nom = it; if (it.isNotBlank()) matId = "" }, placeholder = "ex: TABLE")
+        SuggestionsProduits(data, nom) { p -> nom = p.nom; matId = "" }
         BoutonPlein("Ajouter", Couleurs.Vert) { onAjouter(matId, nom) }
     }
     if (choix) {
