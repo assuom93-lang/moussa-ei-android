@@ -83,7 +83,9 @@ private suspend fun ocrPdf(ctx: Context, uri: Uri): String {
         liste
     }
     val client = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-    return images.joinToString("\n") { client.process(InputImage.fromBitmap(it, 0)).await().text }
+    val textes = ArrayList<String>()
+    for (img in images) textes += client.process(InputImage.fromBitmap(img, 0)).await().text
+    return textes.joinToString("\n")
 }
 
 @Composable
