@@ -157,5 +157,9 @@ class GestionTest {
         val hs = mapOf("2026-10-28" to Heure("06:30", "16:00"))
         assertEquals(LocalDate.of(2026, 10, 29), Heures.dernierJourARemplir(hs, lundi))
         assertEquals("Lundi 2 novembre", Heures.titreJour(lundi))
+        // Pas de week-end : vendredi → lundi, samedi → vendredi.
+        assertEquals(lundi, Heures.decalerOuvre(LocalDate.of(2026, 10, 30), 1))
+        assertEquals(LocalDate.of(2026, 10, 30), Heures.decalerOuvre(lundi, -1))
+        assertEquals(LocalDate.of(2026, 10, 30), Heures.jourOuvre(LocalDate.of(2026, 10, 31)))
     }
 }

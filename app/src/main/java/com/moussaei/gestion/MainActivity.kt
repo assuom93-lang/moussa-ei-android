@@ -54,7 +54,7 @@ class MainActivity : ComponentActivity() {
             setBackgroundColor(Color.WHITE)
         }
         racine.addView(TextView(this).apply {
-            text = "⚠️ moussa EI s'est arrêtée"
+            text = "⚠️ Firodi s'est arrêtée"
             textSize = 22f
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(Color.parseColor("#1E40AF"))
@@ -70,7 +70,7 @@ class MainActivity : ComponentActivity() {
             setOnClickListener {
                 val send = Intent(Intent.ACTION_SEND).apply {
                     type = "text/plain"
-                    putExtra(Intent.EXTRA_SUBJECT, "Rapport de plantage moussa EI")
+                    putExtra(Intent.EXTRA_SUBJECT, "Rapport de plantage Firodi")
                     putExtra(Intent.EXTRA_TEXT, rapport)
                 }
                 startActivity(Intent.createChooser(send, "Envoyer le rapport"))

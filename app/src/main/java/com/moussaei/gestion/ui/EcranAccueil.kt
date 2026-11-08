@@ -106,20 +106,23 @@ private fun Resume(data: AppData, onOuvrir: (Ecran, String) -> Unit) {
     val aujourdhui = LocalDate.now()
     val trajet = Gestion.trajetAJour(data)
     val aCharger = Gestion.nbACharger(data)
+    val aLivrer = data.materiels.count { it.recupere }
     val jour = Heures.dernierJourARemplir(data.heures, aujourdhui)
     val heuresOk = data.heures[jour.toString()]?.remplie == true || !Heures.estOuvre(jour)
 
+    // Dans l'ordre de la journée : chargement → trajet → livraison → palettes → heures.
     Carte {
         Text("Aujourd'hui", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+        if (data.reglages.entreprise.isBlank() || data.reglages.depot.isBlank()) {
+            LigneResume("🏢", "Indique ton entreprise et ton dépôt", couleur = Couleurs.OrangeFonce) { onOuvrir(Ecran.REGLAGES, "") }
+        }
+        LigneResume("🚚", if (aCharger == 0) "Rien à charger" else "$aCharger matériel" + (if (aCharger > 1) "s" else "") + " à charger") { onOuvrir(Ecran.CAMION, "") }
         LigneResume(
             "🗺️",
             if (trajet.isEmpty()) "Aucun trajet préparé"
             else "Trajet : ${trajet.size} arrêt" + (if (trajet.size > 1) "s" else "") + " · ~" + Gestion.dureeTexte(Gestion.minutesEstimees(trajet)),
         ) { onOuvrir(Ecran.TRAJET, "") }
-        LigneResume("🚚", if (aCharger == 0) "Rien à charger" else "$aCharger matériel" + (if (aCharger > 1) "s" else "") + " à charger") { onOuvrir(Ecran.CAMION, "") }
-        if (data.reglages.entreprise.isBlank() || data.reglages.depot.isBlank()) {
-            LigneResume("🏢", "Indique ton entreprise et ton dépôt", couleur = Couleurs.OrangeFonce) { onOuvrir(Ecran.REGLAGES, "") }
-        }
+        LigneResume("🏗️", if (aLivrer == 0) "Rien à livrer" else "$aLivrer matériel" + (if (aLivrer > 1) "s" else "") + " chargé" + (if (aLivrer > 1) "s" else "") + " à livrer") { onOuvrir(Ecran.CAMION, "") }
         val nbRendre = Gestion.nbARendre(data)
         if (nbRendre > 0) {
             LigneResume(
@@ -151,26 +154,27 @@ private fun LigneResume(icone: String, texte: String, couleur: Color = Color.Uns
 
 @Composable
 private fun Tuiles(data: AppData, repo: Repository, onOuvrir: (Ecran, String) -> Unit) {
+    // Ordre de la prise de poste : chargement, trajet, livraison… et les heures à la fin.
+    val aCharger = Gestion.nbACharger(data)
+    Tuile(
+        Ecran.CAMION, if (aCharger == 0) "rien à charger" else "$aCharger à charger · ${data.materiels.size - aCharger} chargé(s)",
+        Couleurs.Rouge, Color.White, Modifier.fillMaxWidth(), grande = true,
+    ) { onOuvrir(Ecran.CAMION, "") }
     val nbTrajet = data.trajet.size
-    // Trajet en grand : c'est la fonction la plus utilisée.
     Tuile(
         Ecran.TRAJET, if (nbTrajet == 0) "Préparer ma tournée" else "$nbTrajet arrêt" + (if (nbTrajet > 1) "s" else ""),
         Couleurs.Bleu, Color.White, Modifier.fillMaxWidth(), grande = true,
     ) { onOuvrir(Ecran.TRAJET, "") }
 
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Tuile(Ecran.BON, "photo, PDF ou texte", Couleurs.Indigo, Color.White, Modifier.weight(1f)) { onOuvrir(Ecran.BON, "") }
-        Tuile(Ecran.MATERIEL, "${data.produits.size} produits", Color(0xFFFFEDD5), Color(0xFF9A3412), Modifier.weight(1f)) { onOuvrir(Ecran.MATERIEL, "") }
-    }
-
     val tuiles = listOf(
         Triple(Ecran.CHANTIERS, "${data.chantiers.count { it.statut != com.moussaei.gestion.core.STATUT_TERMINE }} en cours", Couleurs.OrangeClair to Couleurs.OrangeFonce),
+        Triple(Ecran.BON, "photo, PDF ou texte", Color(0xFFE0E7FF) to Couleurs.Indigo),
         Triple(Ecran.FOURNISSEURS, "${data.fournisseurs.size}", Couleurs.BleuClair to Couleurs.Bleu),
         Triple(Ecran.PALETTES, Gestion.nbARendre(data).let { if (it > 0) "$it à rendre" else "${data.palettes.size} types" }, FondPalette to CouleurPalette),
-        Triple(Ecran.CAMION, Gestion.nbACharger(data).let { if (it == 0) "vide" else "$it à charger" }, Couleurs.RougeClair to Couleurs.RougeFonce),
-        Triple(Ecran.HEURES, Heures.format(Heures.totalMois(data.heures, LocalDate.now().year, LocalDate.now().monthValue).total) + " ce mois", Couleurs.VertClair to Couleurs.VertFonce),
-        Triple(Ecran.HISTORIQUE, "${data.archives.size} livrés", Couleurs.GrisClair to Couleurs.Gris),
+        Triple(Ecran.MATERIEL, "${data.produits.size} produits", Color(0xFFFFEDD5) to Color(0xFF9A3412)),
         Triple(Ecran.LEXIQUE, "${repo.catalogue.size} agences IDF", Couleurs.BleuClair to Couleurs.Bleu),
+        Triple(Ecran.HISTORIQUE, "${data.archives.size} livrés", Couleurs.GrisClair to Couleurs.Gris),
+        Triple(Ecran.HEURES, Heures.format(Heures.totalMois(data.heures, LocalDate.now().year, LocalDate.now().monthValue).total) + " ce mois", Couleurs.VertClair to Couleurs.VertFonce),
     )
     tuiles.chunked(2).forEach { ligne ->
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {

@@ -17,7 +17,7 @@
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
-        android:label="moussa EI"
+        android:label="Firodi"
         android:supportsRtl="false"
         android:theme="@style/Theme.MoussaEI">
 
@@ -30,7 +30,7 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- « Partager » un bon vers moussa EI (photo, PDF, texte). -->
+            <!-- « Partager » un bon vers Firodi (photo, PDF, texte). -->
             <intent-filter android:label="Lire le bon">
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />

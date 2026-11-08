@@ -41,7 +41,7 @@ object Actions {
 
     fun copier(ctx: Context, texte: String, message: String = "✅ Copié !") {
         val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        cm.setPrimaryClip(ClipData.newPlainText("moussa EI", texte))
+        cm.setPrimaryClip(ClipData.newPlainText("Firodi", texte))
         toast(ctx, message)
     }
 

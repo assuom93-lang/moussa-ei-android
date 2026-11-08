@@ -54,7 +54,7 @@ private fun styleEtat(e: Heures.Etat): Pair<Color, Color> = when (e) {
 fun EcranHeures(data: AppData, repo: Repository) {
     val aujourdhui = LocalDate.now()
     var mode by rememberSaveable { mutableStateOf("jour") }
-    var dateTxt by rememberSaveable { mutableStateOf(Heures.dernierJourARemplir(data.heures, aujourdhui).toString()) }
+    var dateTxt by rememberSaveable { mutableStateOf(Heures.jourOuvre(Heures.dernierJourARemplir(data.heures, aujourdhui)).toString()) }
     var edition by rememberSaveable { mutableStateOf<String?>(null) }
     val date = LocalDate.parse(dateTxt)
 
@@ -67,21 +67,21 @@ fun EcranHeures(data: AppData, repo: Repository) {
         when (mode) {
             "mois" -> VueMois(data, date, aujourdhui,
                 onNav = { aller(date.withDayOfMonth(1).plusMonths(it.toLong())) },
-                onJour = { aller(it); mode = "jour" },
+                onJour = { aller(Heures.jourOuvre(it)); mode = "jour" },
                 onAnnee = { mode = "annee" },
-                onDernier = { aller(Heures.dernierJourARemplir(data.heures, aujourdhui)); mode = "jour" },
+                onDernier = { aller(Heures.jourOuvre(Heures.dernierJourARemplir(data.heures, aujourdhui))); mode = "jour" },
             )
             "annee" -> VueAnnee(data, date,
                 onNav = { aller(LocalDate.of(date.year + it, 1, 1)) },
                 onMois = { m -> aller(LocalDate.of(date.year, m, 1)); mode = "mois" },
-                onDernier = { aller(Heures.dernierJourARemplir(data.heures, aujourdhui)); mode = "jour" },
+                onDernier = { aller(Heures.jourOuvre(Heures.dernierJourARemplir(data.heures, aujourdhui))); mode = "jour" },
             )
             else -> VueJour(data, date, aujourdhui,
-                onNav = { aller(date.plusDays(it.toLong())) },
+                onNav = { aller(Heures.decalerOuvre(date, it)) },
                 onJour = { aller(it) },
                 onEditer = { edition = date.toString() },
                 onMois = { mode = "mois" },
-                onDernier = { aller(Heures.dernierJourARemplir(data.heures, aujourdhui)) },
+                onDernier = { aller(Heures.jourOuvre(Heures.dernierJourARemplir(data.heures, aujourdhui))) },
             )
         }
     }
@@ -217,18 +217,19 @@ private fun VueMois(
         Resume("CP", tm.cp.toString(), Couleurs.OrangeClair, Couleurs.OrangeFonce, Modifier.weight(1f))
     }
     Carte {
+        // Du lundi au vendredi seulement : pas de travail le week-end.
         val premier = d.withDayOfMonth(1)
-        val decalage = premier.dayOfWeek.value - 1
-        val nb = premier.lengthOfMonth()
-        val cases: List<LocalDate?> = List(decalage) { null } + (1..nb).map { premier.withDayOfMonth(it) }
+        val jours = (1..premier.lengthOfMonth()).map { premier.withDayOfMonth(it) }.filter { Heures.estOuvre(it) }
+        val decalage = jours.first().dayOfWeek.value - 1
+        val cases: List<LocalDate?> = List(decalage) { null } + jours
         Row(Modifier.fillMaxWidth()) {
-            listOf("L", "M", "M", "J", "V", "S", "D").forEach {
+            listOf("L", "M", "M", "J", "V").forEach {
                 Text(it, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Couleurs.Gris, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
             }
         }
-        cases.chunked(7).forEach { semaine ->
+        cases.chunked(5).forEach { semaine ->
             Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                for (i in 0 until 7) {
+                for (i in 0 until 5) {
                     val dd = semaine.getOrNull(i)
                     if (dd == null) {
                         Spacer(Modifier.weight(1f))

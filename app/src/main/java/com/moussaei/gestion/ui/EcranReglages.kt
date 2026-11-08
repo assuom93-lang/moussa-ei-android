@@ -58,7 +58,7 @@ fun EcranReglages(data: AppData, repo: Repository) {
 
     fun preparerImport(texte: String) {
         val imp = Csv.import(texte)
-        if (imp == null || imp.estVide) Actions.toast(ctx, "❌ Impossible de lire les données. Choisis un fichier de sauvegarde moussa EI (.csv).")
+        if (imp == null || imp.estVide) Actions.toast(ctx, "❌ Impossible de lire les données. Choisis un fichier de sauvegarde Firodi (.csv).")
         else importEnAttente = imp
     }
 
@@ -118,7 +118,7 @@ fun EcranReglages(data: AppData, repo: Repository) {
                     val f = File(dossier, nomFichier)
                     f.writeText(Csv.export(repo.donnees), Charsets.UTF_8)
                     val uri = FileProvider.getUriForFile(ctx, ctx.packageName + ".fichiers", f)
-                    Actions.partagerFichier(ctx, uri, "text/csv", "Sauvegarde moussa EI")
+                    Actions.partagerFichier(ctx, uri, "text/csv", "Sauvegarde Firodi")
                 } catch (e: Exception) {
                     Actions.toast(ctx, "❌ Partage impossible")
                 }
@@ -141,7 +141,7 @@ fun EcranReglages(data: AppData, repo: Repository) {
             val version = try {
                 ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName ?: ""
             } catch (e: Exception) { "" }
-            Ligne("moussa EI v$version — application native Android\nGestion des chantiers, du camion et des livraisons.\nToutes les données restent sur ton téléphone (et ta sauvegarde Google).")
+            Ligne("Firodi v$version — application Android\nGestion des chantiers, du camion et des livraisons.\nToutes les données restent sur ton téléphone (et ta sauvegarde Google).")
         }
     }
 
@@ -182,7 +182,7 @@ fun EcranReglages(data: AppData, repo: Repository) {
                         }
                         BoutonPetit("📲 Envoyer", Couleurs.Bleu, Modifier.weight(1f)) {
                             val uri = FileProvider.getUriForFile(ctx, ctx.packageName + ".fichiers", f)
-                            Actions.partagerFichier(ctx, uri, "text/csv", "Sauvegarde moussa EI")
+                            Actions.partagerFichier(ctx, uri, "text/csv", "Sauvegarde Firodi")
                         }
                     }
                 }

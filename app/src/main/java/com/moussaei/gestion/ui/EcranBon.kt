@@ -152,7 +152,7 @@ fun EcranBon(data: AppData, repo: Repository) {
     ) {
         Carte {
             TitreCarte("📄 Lire un bon")
-            Ligne("Envoie le bon (photo, PDF ou texte) : l'appli lit chaque ligne et te conseille où aller. Astuce : depuis WhatsApp ou ta galerie, « Partager » → moussa EI.")
+            Ligne("Envoie le bon (photo, PDF ou texte) : l'appli lit chaque ligne et te conseille où aller. Astuce : depuis WhatsApp ou ta galerie, « Partager » → Firodi.")
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 BoutonPetit("📷 Photo", Couleurs.Vert, Modifier.weight(1f)) { photo.launch(photoUri) }
                 BoutonPetit("🖼️ Image", Couleurs.Indigo, Modifier.weight(1f)) { image.launch("image/*") }

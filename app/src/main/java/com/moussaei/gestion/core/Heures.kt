@@ -22,6 +22,20 @@ object Heures {
 
     fun estOuvre(d: LocalDate): Boolean = d.dayOfWeek != DayOfWeek.SATURDAY && d.dayOfWeek != DayOfWeek.SUNDAY
 
+    /** Pas de travail le week-end : samedi / dimanche → vendredi précédent. */
+    fun jourOuvre(d: LocalDate): LocalDate = when (d.dayOfWeek) {
+        DayOfWeek.SATURDAY -> d.minusDays(1)
+        DayOfWeek.SUNDAY -> d.minusDays(2)
+        else -> d
+    }
+
+    /** Jour ouvré suivant (sens = 1) ou précédent (sens = -1), en sautant le week-end. */
+    fun decalerOuvre(d: LocalDate, sens: Int): LocalDate {
+        var x = d.plusDays(sens.toLong())
+        while (!estOuvre(x)) x = x.plusDays(sens.toLong())
+        return x
+    }
+
     fun parseHeure(s: String): LocalTime? = try {
         val p = s.trim().split(":")
         LocalTime.of(p[0].toInt(), p.getOrElse(1) { "0" }.toInt())

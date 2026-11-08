@@ -77,7 +77,7 @@ class DemarrageTest {
 
     @Test
     fun chaqueEcranSOuvreSansPlanter() {
-        compose.onNodeWithText("moussa EI").assertExists()
+        compose.onNodeWithText("Firodi").assertExists()
         // Migration faite : enseignes devinées, aucune agence ajoutée aux fournisseurs (v4.3).
         val repo = MoussaApp.instance.repo
         val d = repo.donnees
@@ -89,7 +89,7 @@ class DemarrageTest {
 
         check(d.produits.any { it.nom == "Chaise" } && d.produits.any { it.nom == "Rubalise" }) { "catalogue matériel : ${d.produits.map { it.nom }}" }
 
-        for (t in listOf("Trajet", "Lire un bon", "Matériel", "Chantiers", "Fournisseurs", "Palettes", "Camion", "Heures", "Historique", "Lexique des agences")) {
+        for (t in listOf("Chargement camion", "Trajet", "Livraison chantiers", "Lire un bon", "Fournisseurs", "Palettes", "Matériel", "Lexique des agences", "Historique", "Heures")) {
             ouvrirTuile(t)
             retour()
         }

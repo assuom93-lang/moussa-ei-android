@@ -53,7 +53,7 @@ open class MoussaApp : Application() {
     fun ecrireRapport(e: Throwable, contexte: String) {
         val version = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (ignore: Throwable) { "?" }
         val texte = buildString {
-            append("moussa EI ").append(version).append(" — ").append(LocalDateTime.now()).append('\n')
+            append("Firodi ").append(version).append(" — ").append(LocalDateTime.now()).append('\n')
             append("Android ").append(Build.VERSION.RELEASE).append(" (API ").append(Build.VERSION.SDK_INT).append(") · ")
             append(Build.MANUFACTURER).append(' ').append(Build.MODEL).append('\n')
             append("Contexte : ").append(contexte).append("\n\n")

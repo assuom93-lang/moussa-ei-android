@@ -30,15 +30,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.moussaei.gestion.core.Gestion
 import com.moussaei.gestion.data.Repository
 
 /** Les parties de l'appli, ouvertes depuis les tuiles de l'accueil. */
 enum class Ecran(val icone: String, val titre: String, val avecRecherche: Boolean) {
     TRAJET("🗺️", "Trajet", false),
-    CHANTIERS("🏗️", "Chantiers", true),
+    CHANTIERS("🏗️", "Livraison chantiers", true),
     FOURNISSEURS("📦", "Fournisseurs", true),
     PALETTES("🪵", "Palettes", true),
-    CAMION("🚚", "Camion", true),
+    CAMION("🚚", "Chargement camion", true),
     HEURES("⏰", "Heures", false),
     HISTORIQUE("📂", "Historique", true),
     LEXIQUE("📖", "Lexique des agences", true),
@@ -80,8 +81,8 @@ fun EcranPrincipal(repo: Repository, ecranDemande: Ecran?, onEcranConsomme: () -
             val e = ecran
             if (e == null) {
                 Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                    Text("moussa EI", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 22.sp)
-                    if (data.reglages.entreprise.isNotBlank()) {
+                    Text("Firodi", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 22.sp)
+                    if (data.reglages.entreprise.isNotBlank() && !Gestion.memeEnseigne(data.reglages.entreprise, "Firodi")) {
                         Text(data.reglages.entreprise, color = Color.White.copy(alpha = 0.8f), fontSize = 13.sp)
                     }
                 }
