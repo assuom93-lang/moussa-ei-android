@@ -1,5 +1,8 @@
 package com.moussaei.gestion
 
+import com.moussaei.gestion.core.Reglages
+import com.moussaei.gestion.core.Coord
+import com.moussaei.gestion.core.Trajets
 import com.moussaei.gestion.core.ARRET_LIBRE
 import com.moussaei.gestion.core.AppData
 import com.moussaei.gestion.core.Csv
@@ -161,5 +164,34 @@ class GestionTest {
         assertEquals(lundi, Heures.decalerOuvre(LocalDate.of(2026, 10, 30), 1))
         assertEquals(LocalDate.of(2026, 10, 30), Heures.decalerOuvre(lundi, -1))
         assertEquals(LocalDate.of(2026, 10, 30), Heures.jourOuvre(LocalDate.of(2026, 10, 31)))
+    }
+
+    @Test
+    fun trajetsEnregistres() {
+        val jour = LocalDate.of(2026, 11, 2)
+        var d = AppData(reglages = Reglages(depot = "76 Rue Test, 93700 Drancy", finirAuDepot = true))
+        d = Gestion.ajouterAuTrajet(d, ARRET_LIBRE, "", "Client", "5 rue Libre, Paris").first
+        val (d1, id) = Trajets.enregistrer(d, jour, "07:10")
+        assertEquals("Tournée du lundi 2 novembre", Trajets.parId(d1, id)!!.nom)
+        // Même trajet le même jour : pas de doublon.
+        val (d2, id2) = Trajets.enregistrer(d1, jour, "09:00")
+        assertEquals(id, id2)
+        assertEquals(1, d2.trajetsEnregistres.size)
+        // Départ « ma position » : le calcul part du dépôt et revient au dépôt.
+        assertEquals(listOf("76 Rue Test, 93700 Drancy", "5 rue Libre, Paris", "76 Rue Test, 93700 Drancy"), Trajets.adressesCalcul(d2, Trajets.parId(d2, id)!!))
+        var d3 = Trajets.enregistrerCalcul(d2, id, 42_000, 2 * 3600, "_p~iF~ps|U_ulLnnqC", listOf(3600, 3600))
+        d3 = Trajets.memoriserGeocode(d3, "5 rue Libre, Paris", Coord(48.85, 2.35))
+        assertEquals(120, Trajets.conduite(d3, jour))
+        d3 = Gestion.enregistrerHeure(d3, jour, Heure("06:30", "16:00", conduiteMin = 150))
+        assertEquals(150, Trajets.conduite(d3, jour))
+        assertEquals(d3, assertNotNullAndGet(Csv.import(Csv.export(d3))).data)
+        assertEquals(3, Trajets.decoderPolyline("_p~iF~ps|U_ulLnnqC_mqNvxq`@").size)
+        // Modifier les arrêts efface le calcul.
+        val d4 = Trajets.ajouterArret(d3, id, ARRET_LIBRE, "", "", "8 rue Autre")
+        assertFalse(Trajets.parId(d4, id)!!.calcule)
+        // Rappels de conduite.
+        val d5 = Gestion.enregistrerHeure(d3, jour, Heure("06:30", "18:00", conduiteMin = 10 * 60 + 30))
+        assertTrue(Trajets.alertes(d5, jour).any { it.niveau == Trajets.Niveau.DEPASSEMENT })
+        assertEquals("1h35", Heures.formatMinutes(95))
     }
 }

@@ -36,6 +36,7 @@ import com.moussaei.gestion.core.AppData
 import com.moussaei.gestion.core.Gestion
 import com.moussaei.gestion.core.Heure
 import com.moussaei.gestion.core.Heures
+import com.moussaei.gestion.core.Trajets
 import com.moussaei.gestion.data.Repository
 import com.moussaei.gestion.util.Actions
 import java.time.LocalDate
@@ -56,6 +57,7 @@ fun EcranHeures(data: AppData, repo: Repository) {
     var mode by rememberSaveable { mutableStateOf("jour") }
     var dateTxt by rememberSaveable { mutableStateOf(Heures.jourOuvre(Heures.dernierJourARemplir(data.heures, aujourdhui)).toString()) }
     var edition by rememberSaveable { mutableStateOf<String?>(null) }
+    var ficheTrajet by rememberSaveable { mutableStateOf<String?>(null) }
     val date = LocalDate.parse(dateTxt)
 
     fun aller(d: LocalDate) { dateTxt = d.toString() }
@@ -82,13 +84,16 @@ fun EcranHeures(data: AppData, repo: Repository) {
                 onEditer = { edition = date.toString() },
                 onMois = { mode = "mois" },
                 onDernier = { aller(Heures.jourOuvre(Heures.dernierJourARemplir(data.heures, aujourdhui))) },
+                onTrajet = { ficheTrajet = it },
             )
         }
     }
 
     edition?.let { k ->
-        EditionHeure(LocalDate.parse(k), data.heures[k], repo) { edition = null }
+        val dk = LocalDate.parse(k)
+        EditionHeure(dk, data.heures[k], Trajets.conduiteEstimee(data, dk), repo) { edition = null }
     }
+    ficheTrajet?.let { FicheTrajet(data, repo, it, onFermer = { ficheTrajet = null }) }
 }
 
 @Composable
@@ -110,6 +115,7 @@ private fun EnteteNav(titre: String, sousTitre: String, onNav: (Int) -> Unit, on
 private fun VueJour(
     data: AppData, d: LocalDate, aujourdhui: LocalDate,
     onNav: (Int) -> Unit, onJour: (LocalDate) -> Unit, onEditer: () -> Unit, onMois: () -> Unit, onDernier: () -> Unit,
+    onTrajet: (String) -> Unit,
 ) {
     val h = data.heures[d.toString()]
     val etat = Heures.etat(data.heures, d, aujourdhui)
@@ -149,6 +155,8 @@ private fun VueJour(
         if (h != null && h.note.isNotBlank()) Ligne("📝 " + h.note)
         BoutonPlein("✏️ " + (if (h != null && h.remplie) "Modifier" else "Saisir la fin de journée")) { onEditer() }
     }
+
+    if (h?.cp != true) CarteConduiteJour(data, d, onTrajet = onTrajet, onSaisir = onEditer)
 
     // Semaine du lundi au vendredi
     val lundi = d.minusDays((d.dayOfWeek.value - 1).toLong())
@@ -310,12 +318,14 @@ private fun VueAnnee(data: AppData, d: LocalDate, onNav: (Int) -> Unit, onMois: 
 }
 
 @Composable
-private fun EditionHeure(date: LocalDate, h: Heure?, repo: Repository, onFermer: () -> Unit) {
+private fun EditionHeure(date: LocalDate, h: Heure?, estimee: Int, repo: Repository, onFermer: () -> Unit) {
     val ctx = LocalContext.current
     val confirmation = rememberConfirmation()
     var debut by rememberSaveable { mutableStateOf(if (h != null && !h.cp && h.debut.isNotBlank()) h.debut else Heure.DEBUT_PAR_DEFAUT) }
     var fin by rememberSaveable { mutableStateOf(if (h?.cp == true) "" else h?.fin ?: "") }
     var note by rememberSaveable { mutableStateOf(h?.note ?: "") }
+    // Relevé chrono en minutes ; -1 = on garde l'estimation des trajets.
+    var conduite by rememberSaveable { mutableStateOf(h?.conduiteMin ?: -1) }
 
     fun choisir(valeur: String, defaut: LocalTime, onOk: (String) -> Unit) {
         val t = Heures.parseHeure(valeur) ?: defaut
@@ -335,9 +345,31 @@ private fun EditionHeure(date: LocalDate, h: Heure?, repo: Repository, onFermer:
         if (apercu != null) Ligne("Total : " + Heures.format(apercu) + " (pause 1 h déduite)", MaterialTheme.colorScheme.onSurface)
         Champ("Note (optionnel)", note, { note = it }, "ex: déplacement, heures sup…")
         Ligne("Pause fixe de 1 h déduite automatiquement.")
+
+        // Temps de conduite : estimation des trajets, corrigée par le relevé du chrono.
+        val affiche = if (conduite >= 0) conduite else estimee
+        Box(Modifier.fillMaxWidth().clickable {
+            TimePickerDialog(ctx, { _, hh, mm -> conduite = hh * 60 + mm }, minOf(affiche, 1439) / 60, minOf(affiche, 1439) % 60, true).show()
+        }) {
+            CaseHeure(
+                "🚛 Temps de conduite (relevé chrono) : toucher pour changer",
+                if (affiche > 0 || conduite >= 0) Heures.formatMinutes(affiche) else "--",
+                false, Modifier.fillMaxWidth(),
+            )
+        }
+        Ligne(
+            when {
+                conduite >= 0 && estimee > 0 -> "Relevé saisi. Estimation des trajets : " + Heures.formatMinutes(estimee) + "."
+                conduite >= 0 -> "Relevé saisi."
+                estimee > 0 -> "Estimation d'après les trajets du jour (sans bouchons). Mets ton relevé chrono pour corriger."
+                else -> "Aucun trajet calculé ce jour : saisis ton relevé chrono."
+            },
+        )
+        if (conduite >= 0) BoutonPetit("↺ Reprendre l'estimation des trajets", Couleurs.Gris) { conduite = -1 }
+
         BoutonPlein("✅ Enregistrer", Couleurs.Vert) {
             if (fin.isBlank()) { Actions.toast(ctx, "❌ Indique l'heure de fin"); return@BoutonPlein }
-            repo.update { Gestion.enregistrerHeure(it, date, Heure(debut, fin, false, note.trim())) }
+            repo.update { Gestion.enregistrerHeure(it, date, Heure(debut, fin, false, note.trim(), conduite)) }
             onFermer()
         }
         BoutonPlein("🏖️ Marquer congé (CP)", Couleurs.Orange) {

@@ -55,10 +55,10 @@ object Csv {
         d.palettes.forEach { p -> l += row(p.id, p.nom, p.fournisseurId, p.note, p.enseigne) }
         l += ""
         l += "## HEURES"
-        l += "date,debut,fin,cp,note"
+        l += "date,debut,fin,cp,note,conduite"
         d.heures.keys.sorted().forEach { k ->
             val h = d.heures.getValue(k)
-            l += row(k, h.debut, h.fin, if (h.cp) "1" else "0", h.note)
+            l += row(k, h.debut, h.fin, if (h.cp) "1" else "0", h.note, if (h.conduiteMin >= 0) h.conduiteMin.toString() else "")
         }
         l += ""
         l += "## MATERIELS"
@@ -90,6 +90,20 @@ object Csv {
         l += "## PRODUITS"
         l += "id,nom,fournisseurId,photo,note,alias"
         d.produits.forEach { p -> l += row(p.id, p.nom, p.fournisseurId, p.photo, p.note, p.alias.joinToString("|")) }
+        l += ""
+        l += "## TRAJETS_ENREGISTRES"
+        l += "id,date,heure,nom,depart,arrivee,distance,duree,troncons,geometrie"
+        d.trajetsEnregistres.forEach { t ->
+            l += row(t.id, t.date, t.heure, t.nom, t.depart, t.arrivee, t.distanceM.toString(), t.dureeS.toString(), t.troncons.joinToString("|"), t.geometrie)
+        }
+        l += ""
+        l += "## TRAJETS_ARRETS"
+        l += "trajet,id,type,ref,nom,adresse"
+        d.trajetsEnregistres.forEach { t -> t.arrets.forEach { a -> l += row(t.id, a.id, a.type, a.ref, a.nom, a.adresse) } }
+        l += ""
+        l += "## GEOCODES"
+        l += "adresse,lat,lon"
+        d.geocodes.keys.sorted().forEach { k -> val c = d.geocodes.getValue(k); l += row(k, c.lat.toString(), c.lon.toString()) }
         return l.joinToString("\n") + "\n"
     }
 
@@ -142,6 +156,9 @@ object Csv {
         val aRendre = ArrayList<PaletteARendre>()
         val reg = HashMap<String, String>()
         val produits = ArrayList<Produit>()
+        val trajetsEnr = ArrayList<TrajetEnregistre>()
+        val arretsEnr = LinkedHashMap<String, MutableList<ArretTrajet>>()
+        val geocodes = HashMap<String, Coord>()
 
         var section = ""
         var headerDone = false
@@ -173,6 +190,7 @@ object Csv {
                 "PALETTES" -> if (r.size >= 2 && c(0).isNotEmpty()) palettes += Palette(c(0), c(1), c(2), c(3), c(4))
                 "HEURES" -> if (r.size >= 2 && DATE_KEY.matches(c(0))) heures[c(0)] = Heure(
                     debut = c(1).ifEmpty { Heure.DEBUT_PAR_DEFAUT }, fin = c(2), cp = c(3) == "1", note = c(4),
+                    conduiteMin = c(5).toIntOrNull() ?: -1,
                 )
                 "MATERIELS" -> if (r.size >= 2 && c(0).isNotEmpty()) materiels += Materiel(
                     id = c(0), nom = c(1), fournisseurId = c(2), notes = c(3), recupere = c(4) == "1",
@@ -191,6 +209,17 @@ object Csv {
                     id = c(0), nom = c(1), fournisseurId = c(2), photo = c(3), note = c(4),
                     alias = c(5).split('|').map { it.trim() }.filter { it.isNotEmpty() },
                 )
+                "TRAJETS_ENREGISTRES" -> if (r.size >= 2 && c(0).isNotEmpty()) trajetsEnr += TrajetEnregistre(
+                    id = c(0), date = c(1), heure = c(2), nom = c(3), depart = c(4), arrivee = c(5),
+                    distanceM = c(6).toIntOrNull() ?: 0, dureeS = c(7).toIntOrNull() ?: 0,
+                    troncons = c(8).split('|').mapNotNull { it.trim().toIntOrNull() }, geometrie = c(9),
+                )
+                "TRAJETS_ARRETS" -> if (r.size >= 6 && c(0).isNotEmpty()) arretsEnr.getOrPut(c(0)) { ArrayList() } +=
+                    ArretTrajet(id = c(1), type = c(2), ref = c(3), nom = c(4), adresse = c(5))
+                "GEOCODES" -> if (r.size >= 3 && c(0).isNotEmpty()) {
+                    val la = c(1).toDoubleOrNull(); val lo = c(2).toDoubleOrNull()
+                    if (la != null && lo != null) geocodes[c(0)] = Coord(la, lo)
+                }
             }
         }
         return Import(
@@ -204,6 +233,8 @@ object Csv {
                     produitsMasques = reg["produitsMasques"].orEmpty().split('|').map { it.trim() }.filter { it.isNotEmpty() }.toSet(),
                 ),
                 produits,
+                trajetsEnr.map { t -> t.copy(arrets = arretsEnr[t.id] ?: emptyList()) },
+                geocodes,
             ),
             contientMateriels,
             contientReglages = reg.isNotEmpty(),

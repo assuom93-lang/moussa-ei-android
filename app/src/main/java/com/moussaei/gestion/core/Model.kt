@@ -112,6 +112,8 @@ data class Heure(
     val fin: String = "",
     val cp: Boolean = false,
     val note: String = "",
+    /** Temps de conduite relevé (chronotachygraphe), en minutes ; -1 = pas saisi (on prend l'estimation). */
+    val conduiteMin: Int = -1,
 ) {
     val remplie: Boolean get() = cp || fin.isNotBlank()
 
@@ -153,6 +155,10 @@ data class AppData(
     val aRendre: List<PaletteARendre> = emptyList(),
     val reglages: Reglages = Reglages(),
     val produits: List<Produit> = emptyList(),
+    /** Itinéraires enregistrés (plus récent en premier). */
+    val trajetsEnregistres: List<TrajetEnregistre> = emptyList(),
+    /** Coordonnées déjà trouvées pour une adresse (évite de redemander au service). */
+    val geocodes: Map<String, Coord> = emptyMap(),
 )
 
 enum class StatutEffectif { EN_LIVRAISON, EN_COURS, TERMINE }

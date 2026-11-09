@@ -50,6 +50,13 @@ object Heures {
         return maxOf(0.0, (t * 100).roundToInt() / 100.0)
     }
 
+    /** 95 -> "1h35", 40 -> "40 min" */
+    fun formatMinutes(min: Int): String {
+        if (min < 60) return "$min min"
+        val m = min % 60
+        return (min / 60).toString() + "h" + if (m > 0) m.toString().padStart(2, '0') else ""
+    }
+
     /** 7.5 -> "7h30", 8.0 -> "8h", null -> "—" */
     fun format(x: Double?): String {
         if (x == null) return "—"

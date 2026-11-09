@@ -14,8 +14,8 @@ android {
         applicationId = "com.moussaei.gestion"
         minSdk = 26
         targetSdk = 36
-        versionCode = 8
-        versionName = "4.5"
+        versionCode = 9
+        versionName = "4.6"
         // Seulement les processeurs des téléphones actuels (allège l'APK du scanner de texte).
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
@@ -92,6 +92,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
     // Photos des produits : remettre les photos à l'endroit.
     implementation("androidx.exifinterface:exifinterface:1.3.7")
+    // Carte des trajets (OpenStreetMap, sans compte Google).
+    implementation("org.osmdroid:osmdroid-android:6.1.20")
 
     testImplementation("junit:junit:4.13.2")
     // Test de démarrage : lance la vraie appli (Robolectric) et ouvre chaque écran.

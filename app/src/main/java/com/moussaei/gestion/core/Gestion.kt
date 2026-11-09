@@ -237,6 +237,8 @@ object Gestion {
             trajetDepart = if (n.trajet.isNotEmpty() || n.trajetDepart.isNotBlank()) n.trajetDepart else actuel.trajetDepart,
             aRendre = if (n.aRendre.isNotEmpty()) n.aRendre else actuel.aRendre,
             produits = if (n.produits.isNotEmpty()) n.produits else actuel.produits,
+            trajetsEnregistres = if (n.trajetsEnregistres.isNotEmpty()) n.trajetsEnregistres else actuel.trajetsEnregistres,
+            geocodes = actuel.geocodes + n.geocodes,
             // Fichier ancien (sans réglages) : on garde les réglages actuels mais on refait la migration.
             reglages = if (imp.contientReglages) n.reglages else actuel.reglages.copy(version = 0),
         )

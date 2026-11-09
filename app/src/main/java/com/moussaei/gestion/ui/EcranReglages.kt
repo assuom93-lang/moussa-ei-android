@@ -1,5 +1,10 @@
 package com.moussaei.gestion.ui
 
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import com.moussaei.gestion.util.CalculPL
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -90,6 +95,7 @@ fun EcranReglages(data: AppData, repo: Repository) {
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         CarteEntrepriseDepot(data, repo)
+        CarteCalculPL()
 
         Carte {
             TitreCarte("⏰ Rappel heures de travail")
@@ -221,4 +227,54 @@ private fun CarteEntrepriseDepot(data: AppData, repo: Repository) {
         onChoix = { id -> data.fournisseurs.firstOrNull { it.id == id }?.let { depot = it.adresse.trim() }; choix = false },
         onFermer = { choix = false },
     )
+}
+
+/** Clé OpenRouteService : carte des trajets et temps de route poids lourd. */
+@Composable
+private fun CarteCalculPL() {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var cle by rememberSaveable { mutableStateOf(CalculPL.cle(ctx)) }
+    var resultat by remember { mutableStateOf("") }
+    var test by remember { mutableStateOf(false) }
+    var aide by rememberSaveable { mutableStateOf(CalculPL.cle(ctx).isBlank()) }
+    Carte(lisere = if (CalculPL.cle(ctx).isBlank()) Couleurs.Orange else null) {
+        TitreCarte("🚛 Temps de route poids lourd")
+        Ligne("Carte des trajets enregistrés et vrai temps de route pour ton camion (" + CalculPL.CAMION + "), avec le service gratuit OpenRouteService.")
+        OutlinedTextField(
+            value = cle,
+            onValueChange = { cle = it.trim() },
+            label = { Text("Clé OpenRouteService") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            BoutonPetit("Enregistrer", Couleurs.Vert, Modifier.weight(1f)) {
+                CalculPL.enregistrerCle(ctx, cle)
+                Actions.toast(ctx, if (cle.isBlank()) "Clé effacée" else "✅ Clé enregistrée")
+            }
+            BoutonPetit(if (test) "⏳ Test…" else "Tester la clé", Couleurs.Indigo, Modifier.weight(1f)) {
+                if (cle.isBlank() || test) return@BoutonPetit
+                test = true
+                scope.launch {
+                    resultat = CalculPL.tester(cle)
+                    if (resultat.startsWith("✅")) CalculPL.enregistrerCle(ctx, cle)
+                    test = false
+                }
+            }
+        }
+        if (resultat.isNotBlank()) Ligne(resultat, if (resultat.startsWith("✅")) Couleurs.VertFonce else Couleurs.RougeFonce)
+        BoutonContour(if (aide) "Masquer l'aide" else "❓ Comment avoir la clé gratuite") { aide = !aide }
+        if (aide) {
+            Ligne(
+                "1. Touche le bouton ci-dessous : il ouvre le site du compte OpenRouteService (account.heigit.org).\n" +
+                    "2. Crée un compte gratuit avec ton e-mail (mot de passe de 8 caractères minimum) et confirme l'e-mail reçu.\n" +
+                    "3. Connecte-toi : ta clé « Standard » est affichée (une longue suite de lettres, souvent commençant par eyJ).\n" +
+                    "4. Copie-la, colle-la ici, puis « Tester la clé ».\n\n" +
+                    "Gratuit, largement assez pour tes tournées.",
+                MaterialTheme.colorScheme.onSurface,
+            )
+            BoutonPetit("🌐 Créer ma clé gratuite", Couleurs.Bleu) { Actions.ouvrirUrl(ctx, "https://account.heigit.org/") }
+        }
+    }
 }

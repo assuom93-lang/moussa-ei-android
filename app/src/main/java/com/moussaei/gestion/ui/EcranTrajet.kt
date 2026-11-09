@@ -42,7 +42,9 @@ import com.moussaei.gestion.core.AppData
 import com.moussaei.gestion.core.Gestion
 import com.moussaei.gestion.core.STATUT_TERMINE
 import com.moussaei.gestion.data.Repository
+import com.moussaei.gestion.core.Trajets
 import com.moussaei.gestion.util.Actions
+import com.moussaei.gestion.util.CalculPL
 
 /** Bouton « ➕ Trajet » / « ✓ Dans le trajet » (re-toucher retire l'arrêt). */
 @Composable
@@ -63,6 +65,16 @@ fun EcranTrajet(data: AppData, repo: Repository) {
     var choixArrets by rememberSaveable { mutableStateOf(false) }
     var adresseLibre by rememberSaveable { mutableStateOf(false) }
     var choixDepart by rememberSaveable { mutableStateOf(false) }
+    var enregistrer by rememberSaveable { mutableStateOf(false) }
+    var mesTrajets by rememberSaveable { mutableStateOf(false) }
+
+    /** Lancer Google Maps enregistre le trajet sur le jour (et calcule le temps de route PL en fond). */
+    fun lancer(url: String) {
+        var id = ""
+        repo.update { d -> Trajets.enregistrer(d, java.time.LocalDate.now(), heureMaintenant()).also { id = it.second }.first }
+        CalculPL.calculerEnFond(ctx, repo, id)
+        Actions.ouvrirUrl(ctx, url)
+    }
 
     val arrets = Gestion.trajetAJour(data)
     val arrivee = Gestion.arrivee(data)
@@ -141,12 +153,18 @@ fun EcranTrajet(data: AppData, repo: Repository) {
         }
 
         if (parties.size == 1) {
-            BoutonPlein("🚀 Ouvrir dans Google Maps", Couleurs.Vert) { Actions.ouvrirUrl(ctx, parties[0].url) }
+            BoutonPlein("🚀 Ouvrir dans Google Maps", Couleurs.Vert) { lancer(parties[0].url) }
         } else if (parties.size > 1) {
             Ligne("Google Maps accepte 10 arrêts par lien : ta tournée est découpée en ${parties.size} parties. Lance la partie suivante quand tu as fini la précédente.")
             parties.forEach { p ->
-                BoutonPlein("🚀 Partie ${p.numero} : arrêts ${p.premier} à ${p.dernier}", Couleurs.Vert) { Actions.ouvrirUrl(ctx, p.url) }
+                BoutonPlein("🚀 Partie ${p.numero} : arrêts ${p.premier} à ${p.dernier}", Couleurs.Vert) { lancer(p.url) }
             }
+        }
+        if (parties.isNotEmpty()) Ligne("L'itinéraire s'enregistre tout seul sur le jour quand tu ouvres Google Maps.")
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (arrets.isNotEmpty()) BoutonPetit("💾 Enregistrer", Couleurs.Bleu, Modifier.weight(1f)) { enregistrer = true }
+            BoutonPetit("📚 Mes trajets (${data.trajetsEnregistres.size})", Couleurs.Bleu, Modifier.weight(1f)) { mesTrajets = true }
         }
 
         if (arrets.isNotEmpty()) {
@@ -167,6 +185,8 @@ fun EcranTrajet(data: AppData, repo: Repository) {
         onFermer = { adresseLibre = false },
     )
     if (choixDepart) ChoixDepart(data, repo) { choixDepart = false }
+    if (enregistrer) DialogueEnregistrerTrajet(data, repo) { enregistrer = false }
+    if (mesTrajets) MesTrajets(data, repo) { mesTrajets = false }
     ConfirmationHost(confirmation)
 }
 
@@ -268,7 +288,7 @@ private fun ChoixDepart(data: AppData, repo: Repository, onFermer: () -> Unit) {
 }
 
 @Composable
-private fun DialogueAdresse(
+internal fun DialogueAdresse(
     titre: String,
     avecNom: Boolean,
     valeurInitiale: String = "",
