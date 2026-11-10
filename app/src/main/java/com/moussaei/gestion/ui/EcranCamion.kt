@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -43,7 +44,9 @@ fun EcranCamion(data: AppData, repo: Repository, recherche: String) {
     var ficheId by rememberSaveable { mutableStateOf<String?>(null) }
     var formulaire by rememberSaveable { mutableStateOf<String?>(null) }
     var affectation by rememberSaveable { mutableStateOf<String?>(null) }
+    var fournisseurDe by rememberSaveable { mutableStateOf<String?>(null) }
     var plusieurs by rememberSaveable { mutableStateOf(false) }
+    val ctx = LocalContext.current
 
     val liste = Gestion.camionTrie(data).filter { m ->
         Gestion.correspond(
@@ -77,6 +80,7 @@ fun EcranCamion(data: AppData, repo: Repository, recherche: String) {
                 onEmplacement = { e -> repo.update { Gestion.basculerEmplacement(it, m.id, e) } },
                 onCharge = { repo.update { Gestion.basculerCharge(it, m.id, LocalDate.now()) } },
                 onChantier = { affectation = m.id },
+                onFournisseur = { fournisseurDe = m.id },
                 onLivre = {
                     confirmation.demander("Marquer comme livré et archiver ?", "Livré") {
                         repo.update { Gestion.livrer(it, m.id, LocalDate.now()) }
@@ -94,6 +98,15 @@ fun EcranCamion(data: AppData, repo: Repository, recherche: String) {
     }
     formulaire?.let { id -> FormulaireMateriel(data, repo, data.materiels.firstOrNull { it.id == id }) { formulaire = null } }
     affectation?.let { id -> data.materiels.firstOrNull { it.id == id }?.let { m -> AffectationChantiers(data, repo, m) { affectation = null } } }
+    fournisseurDe?.let { id ->
+        data.materiels.firstOrNull { it.id == id }?.let { m ->
+            ChoixFournisseur(data, { f ->
+                repo.update { Gestion.modifierMateriel(it, m.id, m.nom, f, m.notes) }
+                Actions.toast(ctx, Gestion.fournisseur(data, f)?.let { "🏭 " + it.nom.trim() } ?: "Fournisseur retiré")
+                fournisseurDe = null
+            }) { fournisseurDe = null }
+        }
+    }
     if (plusieurs) AjoutPlusieurs(data, repo) { plusieurs = false }
     ConfirmationHost(confirmation)
 }
@@ -123,6 +136,7 @@ private fun CarteMateriel(
     onEmplacement: (String) -> Unit,
     onCharge: () -> Unit,
     onChantier: () -> Unit,
+    onFournisseur: () -> Unit,
     onLivre: () -> Unit,
     onSupprimer: () -> Unit,
 ) {
@@ -146,11 +160,25 @@ private fun CarteMateriel(
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             BoutonPetit(if (m.recupere) "↩ Annuler" else "🚛 Chargé", Couleurs.Vert, Modifier.weight(1f)) { onCharge() }
-            BoutonPetit("🏗️ Chantier", Couleurs.Indigo, Modifier.weight(1f)) { onChantier() }
+            // Grue et fournisseur côte à côte, en petit.
+            BoutonIcone("🏗️", Couleurs.Indigo, Modifier.weight(0.5f)) { onChantier() }
+            BoutonIcone("🏭", if (m.fournisseurId.isBlank()) Couleurs.Gris else Couleurs.OrangeFonce, Modifier.weight(0.5f)) { onFournisseur() }
             BoutonPetit("📦 Livré", Couleurs.Bleu, Modifier.weight(1f)) { onLivre() }
             BoutonPoubelle(onSupprimer)
         }
     }
+}
+
+/** Petit bouton carré avec une seule icône. */
+@Composable
+private fun BoutonIcone(icone: String, couleur: Color, modifier: Modifier, onClick: () -> Unit) {
+    androidx.compose.material3.Button(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 38.dp),
+        shape = RoundedCornerShape(8.dp),
+        colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = couleur, contentColor = Color.White),
+        contentPadding = PaddingValues(0.dp),
+    ) { Text(icone, fontSize = 16.sp, maxLines = 1) }
 }
 
 @Composable
