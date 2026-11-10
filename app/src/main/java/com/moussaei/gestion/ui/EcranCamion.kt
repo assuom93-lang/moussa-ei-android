@@ -50,7 +50,7 @@ fun EcranCamion(data: AppData, repo: Repository, recherche: String) {
 
     val liste = Gestion.camionTrie(data).filter { m ->
         Gestion.correspond(
-            recherche, m.nom, m.notes, Gestion.fournisseur(data, m.fournisseurId)?.nom,
+            recherche, m.nom, m.notes, Gestion.fournisseur(data, m.fournisseurId)?.nom, Gestion.nomFournisseur(data, m.fournisseurId),
             Gestion.chantiersDuMateriel(data, m.id).joinToString(" ") { Gestion.nomAffiche(it) },
         )
     }
@@ -100,9 +100,9 @@ fun EcranCamion(data: AppData, repo: Repository, recherche: String) {
     affectation?.let { id -> data.materiels.firstOrNull { it.id == id }?.let { m -> AffectationChantiers(data, repo, m) { affectation = null } } }
     fournisseurDe?.let { id ->
         data.materiels.firstOrNull { it.id == id }?.let { m ->
-            ChoixFournisseur(data, { f ->
+            ChoixFournisseur(data, m.fournisseurId, { f ->
                 repo.update { Gestion.modifierMateriel(it, m.id, m.nom, f, m.notes) }
-                Actions.toast(ctx, Gestion.fournisseur(data, f)?.let { "🏭 " + it.nom.trim() } ?: "Fournisseur retiré")
+                Actions.toast(ctx, Gestion.nomFournisseur(data, f)?.let { "🏭 $it" } ?: "Fournisseur retiré")
                 fournisseurDe = null
             }) { fournisseurDe = null }
         }
@@ -146,7 +146,7 @@ private fun CarteMateriel(
             androidx.compose.foundation.layout.Column(Modifier.weight(1f)) { TitreCarte(m.nom) }
             IconePhoto(com.moussaei.gestion.core.Produits.photoDe(data, m.nom))
         }
-        Gestion.fournisseur(data, m.fournisseurId)?.let { Ligne("🏭 ${it.nom.trim()}") }
+        Gestion.nomFournisseur(data, m.fournisseurId)?.let { Ligne("🏭 $it") }
         if (chantiers.isNotEmpty()) Ligne("🏗️ → " + chantiers.joinToString(", ") { Gestion.nomAffiche(it) })
         Note(m.notes)
         Pastilles {
@@ -205,7 +205,7 @@ private fun FicheMateriel(data: AppData, repo: Repository, m: Materiel, onModifi
     val chantiers = Gestion.chantiersDuMateriel(data, m.id)
     FenetrePleine(m.nom, onFermer) {
         Carte {
-            Gestion.fournisseur(data, m.fournisseurId)?.let { Ligne("🏭 ${it.nom.trim()}") }
+            Gestion.nomFournisseur(data, m.fournisseurId)?.let { Ligne("🏭 $it") }
             if (chantiers.isNotEmpty()) Ligne("🏗️ → " + chantiers.joinToString(", ") { Gestion.nomAffiche(it) })
             else Ligne("⚠️ Pas de chantier assigné", Couleurs.OrangeFonce)
             Note(m.notes)
@@ -253,7 +253,7 @@ fun FormulaireMateriel(data: AppData, repo: Repository, existant: Materiel?, onF
             val ch = data.chantiers.firstOrNull { it.id == chantierId }
             ChampChoix("Chantier (optionnel)", ch?.let { Gestion.nomAffiche(it) } ?: "-- Aucun chantier --") { choixC = true }
         }
-        ChampChoix("Fournisseur (optionnel)", Gestion.fournisseur(data, fournisseurId)?.nom?.trim() ?: "-- Aucun fournisseur --") { choixF = true }
+        ChampChoix("Fournisseur (optionnel)", Gestion.nomFournisseur(data, fournisseurId) ?: "-- Aucun fournisseur --") { choixF = true }
         Champ("Notes (optionnel)", notes, { notes = it }, "ex: fragile, livrer avant 14h…", multiligne = true)
         BoutonPlein("Enregistrer", Couleurs.Vert) {
             if (nom.isBlank()) { Actions.toast(ctx, "Entre le nom du matériel"); return@BoutonPlein }
@@ -262,15 +262,25 @@ fun FormulaireMateriel(data: AppData, repo: Repository, existant: Materiel?, onF
             onFermer()
         }
     }
-    if (choixF) ChoixFournisseur(data, { fournisseurId = it; choixF = false }) { choixF = false }
+    if (choixF) ChoixFournisseur(data, fournisseurId, { fournisseurId = it; choixF = false }) { choixF = false }
     if (choixC) ChoixChantier(data, { chantierId = it; choixC = false }) { choixC = false }
 }
 
 @Composable
-fun ChoixFournisseur(data: AppData, onChoix: (String) -> Unit, onFermer: () -> Unit) {
+fun ChoixFournisseur(data: AppData, onChoix: (String) -> Unit, onFermer: () -> Unit) = ChoixFournisseur(data, "", onChoix, onFermer)
+
+/**
+ * Choix du fournisseur par enseigne (Point P, Raboni, PUM…), sans les adresses des agences :
+ * les adresses ne servent que dans le trajet. Renvoie une agence de l'enseigne (garde [actuel] si elle en fait partie).
+ */
+@Composable
+fun ChoixFournisseur(data: AppData, actuel: String, onChoix: (String) -> Unit, onFermer: () -> Unit) {
     ChoixDialog(
         "Fournisseur",
-        Gestion.fournisseursTries(data).map { Option(it.id, it.nom.trim(), it.adresse) },
+        Gestion.enseignes(data).map { e ->
+            val n = Gestion.agencesDe(data, e).size
+            Option(Gestion.representant(data, e, actuel), e, if (n > 1) "$n agences" else "")
+        }.filter { it.id.isNotBlank() },
         libelleAucun = "-- Aucun fournisseur --",
         onChoix = onChoix,
         onFermer = onFermer,

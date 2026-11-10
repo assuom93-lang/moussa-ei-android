@@ -79,7 +79,7 @@ fun AjoutPlusieurs(data: AppData, repo: Repository, onFermer: () -> Unit) {
             Champ("Liste", liste, { liste = it }, "Ba 13 x10\nSac ciment x5\nRubalise\nPlaco hydro", multiligne = true)
             val ch = data.chantiers.firstOrNull { it.id == chantierId }
             ChampChoix("Chantier (optionnel)", ch?.let { Gestion.nomAffiche(it) } ?: "-- Chantier --") { choixC = true }
-            ChampChoix("Fournisseur (optionnel)", Gestion.fournisseur(data, fournisseurId)?.nom?.trim() ?: "-- Fournisseur --") { choixF = true }
+            ChampChoix("Fournisseur (optionnel)", Gestion.nomFournisseur(data, fournisseurId) ?: "-- Fournisseur --") { choixF = true }
             BoutonPlein("📋 Ajouter toute la liste au camion", Couleurs.Orange) {
                 if (liste.isBlank()) { Actions.toast(ctx, "Écris au moins un matériel !"); return@BoutonPlein }
                 var n = 0
@@ -120,5 +120,5 @@ fun AjoutPlusieurs(data: AppData, repo: Repository, onFermer: () -> Unit) {
     }
 
     if (choixC) ChoixChantier(data, { chantierId = it; choixC = false }) { choixC = false }
-    if (choixF) ChoixFournisseur(data, { fournisseurId = it; choixF = false }) { choixF = false }
+    if (choixF) ChoixFournisseur(data, fournisseurId, { fournisseurId = it; choixF = false }) { choixF = false }
 }

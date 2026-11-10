@@ -14,8 +14,8 @@ android {
         applicationId = "com.moussaei.gestion"
         minSdk = 26
         targetSdk = 36
-        versionCode = 10
-        versionName = "4.6.1"
+        versionCode = 11
+        versionName = "4.6.2"
         // Seulement les processeurs des téléphones actuels (allège l'APK du scanner de texte).
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }

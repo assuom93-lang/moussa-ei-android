@@ -135,7 +135,7 @@ private fun FicheChantier(data: AppData, repo: Repository, c: Chantier, onModifi
         mats.forEach { m ->
             Carte(lisere = if (m.recupere) Couleurs.Vert else null) {
                 TitreCarte(m.nom)
-                Gestion.fournisseur(data, m.fournisseurId)?.let { Ligne("🏭 ${it.nom.trim()}") }
+                Gestion.nomFournisseur(data, m.fournisseurId)?.let { Ligne("🏭 $it") }
                 Pastilles {
                     if (m.recupere) Pastille("🚛 Chargé", Couleurs.VertClair, Couleurs.VertFonce)
                     else Pastille("✕ À charger", Couleurs.RougeClair, Couleurs.RougeFonce)
@@ -193,7 +193,7 @@ private fun AjoutMaterielChantier(data: AppData, onAjouter: (String, String) -> 
     if (choix) {
         ChoixDialog(
             "Matériel du camion",
-            data.materiels.map { m -> Option(m.id, m.nom, Gestion.fournisseur(data, m.fournisseurId)?.nom ?: "") },
+            data.materiels.map { m -> Option(m.id, m.nom, Gestion.nomFournisseur(data, m.fournisseurId) ?: "") },
             libelleAucun = "-- Aucun --",
             onChoix = { matId = it; if (it.isNotEmpty()) nom = ""; choix = false },
             onFermer = { choix = false },

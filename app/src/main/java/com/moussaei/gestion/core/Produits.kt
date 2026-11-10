@@ -59,14 +59,21 @@ object Produits {
                 index[k] = produits.size - 1
                 change = true
             } else if (fournisseurId.isNotBlank() && produits[i].fournisseurId != fournisseurId &&
-                (remplacer || produits[i].fournisseurId.isBlank())
+                (remplacer || produits[i].fournisseurId.isBlank()) &&
+                // Autre agence de la même enseigne : rien ne change pour l'utilisateur.
+                !memeEnseigne(d, produits[i].fournisseurId, fournisseurId)
             ) {
                 produits[i] = produits[i].copy(fournisseurId = fournisseurId)
                 change = true
             }
         }
 
-        val parNom = d.fournisseurs.associateBy { Gestion.normaliser(it.nom) }
+        val parNom = HashMap<String, Fournisseur>()
+        d.fournisseurs.forEach { parNom[Gestion.normaliser(it.nom)] = it }
+        // L'historique garde le nom de l'enseigne : on le relie à une de ses agences.
+        Gestion.enseignes(d).forEach { e ->
+            Gestion.fournisseur(d, Gestion.representant(d, e))?.let { parNom.putIfAbsent(Gestion.normaliser(e), it) }
+        }
         // Historique d'abord (plus ancien), puis le camion qui prime.
         d.archives.asReversed().forEach { a ->
             val f = parNom[Gestion.normaliser(a.fournisseurNom)]?.id ?: ""
@@ -74,6 +81,12 @@ object Produits {
         }
         d.materiels.forEach { m -> assurer(m.nom, m.fournisseurId, remplacer = true) }
         return if (change) d.copy(produits = produits) else d
+    }
+
+    private fun memeEnseigne(d: AppData, a: String, b: String): Boolean {
+        val fa = Gestion.fournisseur(d, a) ?: return false
+        val fb = Gestion.fournisseur(d, b) ?: return false
+        return Gestion.memeEnseigne(Gestion.enseigneDe(fa), Gestion.enseigneDe(fb))
     }
 
     /** Retient le fournisseur d'un produit (le crée s'il n'existe pas encore). */

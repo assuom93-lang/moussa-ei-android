@@ -86,14 +86,14 @@ object Bons {
 
     /** Libellé court du conseil, ex. « PUM (mot-clé : coude) ». */
     fun libelle(d: AppData, c: Conseil): String = when (c.raison) {
-        Raison.HABITUDE -> (Gestion.fournisseur(d, c.fournisseurId)?.nom?.trim() ?: c.enseigne) + " (habitude)"
+        Raison.HABITUDE -> (Gestion.nomFournisseur(d, c.fournisseurId) ?: c.enseigne) + " (habitude)"
         Raison.MOT_CLE -> c.enseigne + " (mot-clé : " + c.motCle + ")"
         Raison.AUCUN -> "Pas de conseil"
     }
 
     /** Clé de regroupement d'un conseil : fournisseur précis, sinon enseigne. */
     fun destination(d: AppData, c: Conseil): String = when {
-        c.fournisseurId.isNotBlank() -> Gestion.fournisseur(d, c.fournisseurId)?.nom?.trim() ?: c.enseigne
+        c.fournisseurId.isNotBlank() -> Gestion.nomFournisseur(d, c.fournisseurId) ?: c.enseigne
         c.enseigne.isNotBlank() -> c.enseigne
         else -> "Sans conseil"
     }

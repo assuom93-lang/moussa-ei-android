@@ -1,6 +1,7 @@
 package com.moussaei.gestion
 
 import com.moussaei.gestion.core.Reglages
+import com.moussaei.gestion.core.Produits
 import com.moussaei.gestion.core.Coord
 import com.moussaei.gestion.core.Trajets
 import com.moussaei.gestion.core.ARRET_LIBRE
@@ -193,5 +194,34 @@ class GestionTest {
         val d5 = Gestion.enregistrerHeure(d3, jour, Heure("06:30", "18:00", conduiteMin = 10 * 60 + 30))
         assertTrue(Trajets.alertes(d5, jour).any { it.niveau == Trajets.Niveau.DEPASSEMENT })
         assertEquals("1h35", Heures.formatMinutes(95))
+    }
+
+    @Test
+    fun fournisseurParEnseigne() {
+        var d = AppData()
+        d = Gestion.ajouterFournisseur(d, "Point P Bobigny", "1 rue A, Bobigny", "Point P")
+        d = Gestion.ajouterFournisseur(d, "Point P Aubervilliers", "2 rue B, Aubervilliers", "Point P")
+        d = Gestion.ajouterFournisseur(d, "Raboni Drancy", "3 rue C, Drancy", "Raboni")
+        val aub = d.fournisseurs.first { it.nom == "Point P Aubervilliers" }.id
+        val bob = d.fournisseurs.first { it.nom == "Point P Bobigny" }.id
+        assertEquals("Point P", Gestion.nomFournisseur(d, bob))
+        // On garde l'agence déjà choisie si elle est de la même enseigne.
+        assertEquals(bob, Gestion.representant(d, "point p", bob))
+        assertEquals(aub, Gestion.representant(d, "Point P")) // tri alphabétique
+        // Livraison : l'historique garde l'enseigne, et le produit retrouve son fournisseur.
+        d = Gestion.ajouterMateriel(d, "Tube PVC", bob, "", "").first
+        val m = d.materiels.first()
+        d = Produits.synchroniser(Gestion.livrer(d, m.id, LocalDate.of(2026, 11, 10)))
+        assertEquals("Point P", d.archives.first().fournisseurNom)
+        assertEquals("Point P", Gestion.nomFournisseur(d, Produits.trouver(d, "Tube PVC")!!.fournisseurId))
+        // Une autre agence de la même enseigne ne change pas le produit.
+        val avant = Produits.trouver(d, "Tube PVC")!!.fournisseurId
+        val autre = if (avant == aub) bob else aub
+        val d2 = Produits.synchroniser(Gestion.ajouterMateriel(d, "Tube PVC", autre, "", "").first)
+        assertEquals(avant, Produits.trouver(d2, "Tube PVC")!!.fournisseurId)
+        // Raboni (autre enseigne) remplace bien.
+        val rab = d.fournisseurs.first { it.nom == "Raboni Drancy" }.id
+        val d3 = Produits.synchroniser(Gestion.ajouterMateriel(d, "Tube PVC", rab, "", "").first)
+        assertEquals(rab, Produits.trouver(d3, "Tube PVC")!!.fournisseurId)
     }
 }

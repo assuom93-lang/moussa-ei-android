@@ -61,6 +61,19 @@ object Gestion {
     fun fournisseur(d: AppData, id: String): Fournisseur? =
         if (id.isBlank()) null else d.fournisseurs.firstOrNull { it.id == id }
 
+    /** Nom affiché d'un fournisseur : son enseigne (Point P, Raboni…), sans l'agence. */
+    fun nomFournisseur(d: AppData, id: String): String? = fournisseur(d, id)?.let { enseigneDe(it) }
+
+    /**
+     * Agence qui représente une enseigne pour un matériel ou un produit.
+     * Si [actuel] est déjà une agence de cette enseigne, on la garde.
+     */
+    fun representant(d: AppData, enseigne: String, actuel: String = ""): String {
+        fournisseur(d, actuel)?.let { if (memeEnseigne(enseigneDe(it), enseigne)) return it.id }
+        val agences = agencesDe(d, enseigne)
+        return (agences.firstOrNull { !it.id.startsWith("_ag") } ?: agences.firstOrNull())?.id ?: ""
+    }
+
     fun nbACharger(d: AppData): Int = d.materiels.count { !it.recupere }
 
     /** Recherche simple insensible à la casse et aux accents. */
@@ -186,7 +199,7 @@ object Gestion {
      */
     fun livrer(d: AppData, materielId: String, aujourdhui: LocalDate, depuisChantierId: String = ""): AppData {
         val m = d.materiels.firstOrNull { it.id == materielId } ?: return d
-        val fournisseurNom = fournisseur(d, m.fournisseurId)?.nom?.trim() ?: "Inconnu"
+        val fournisseurNom = nomFournisseur(d, m.fournisseurId) ?: "Inconnu"
         val chantiersNom = if (depuisChantierId.isNotBlank()) {
             d.chantiers.firstOrNull { it.id == depuisChantierId }?.let { nomAffiche(it) } ?: "Inconnu"
         } else {

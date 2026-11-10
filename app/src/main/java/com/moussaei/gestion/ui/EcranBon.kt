@@ -192,7 +192,7 @@ fun EcranBon(data: AppData, repo: Repository) {
                         Column(Modifier.weight(1f)) {
                             Text(l, fontWeight = FontWeight.SemiBold)
                             Text(
-                                (if (choisis.containsKey(i)) Gestion.fournisseur(data, choisis.getValue(i))?.nom?.trim() + " (choisi)" else Bons.libelle(data, c)),
+                                (if (choisis.containsKey(i)) Gestion.nomFournisseur(data, choisis.getValue(i)) + " (choisi)" else Bons.libelle(data, c)),
                                 fontSize = 12.sp, color = couleur,
                                 modifier = Modifier.padding(top = 2.dp).clip(RoundedCornerShape(10.dp)).background(fond).padding(horizontal = 8.dp, vertical = 2.dp),
                             )
@@ -212,16 +212,23 @@ fun EcranBon(data: AppData, repo: Repository) {
                     var x = d
                     inclus.forEach { i ->
                         val c = conseils[i]
-                        val note = if (c.fournisseurId.isBlank() && c.enseigne.isNotBlank()) "Conseil : " + c.enseigne else ""
-                        x = Gestion.ajouterMateriel(x, lignes[i], c.fournisseurId, note, chantierId).first
+                        // Enseigne conseillée → une de ses agences, pour que le 🏭 soit déjà rempli.
+                        val f = c.fournisseurId.ifBlank { if (c.enseigne.isNotBlank()) Gestion.representant(x, c.enseigne) else "" }
+                        val note = if (f.isBlank() && c.enseigne.isNotBlank()) "Conseil : " + c.enseigne else ""
+                        x = Gestion.ajouterMateriel(x, lignes[i], f, note, chantierId).first
                     }
                     x
                 }
                 Actions.toast(ctx, "✅ ${inclus.size} article" + (if (inclus.size > 1) "s" else "") + " dans le camion")
             }
-            // Trajet : fournisseurs précis directement, enseignes sans agence choisie → liste des agences
-            val fournisseurs = inclus.map { conseils[it].fournisseurId }.filter { it.isNotBlank() }.distinct()
-            val enseignesSeules = inclus.map { conseils[it] }.filter { it.fournisseurId.isBlank() && it.enseigne.isNotBlank() }.map { it.enseigne }.distinct()
+            // Trajet : c'est seulement ici qu'on choisit l'agence (adresse).
+            // Enseigne avec une seule agence → ajout direct ; plusieurs agences → choix de l'agence.
+            val enseignesBon = inclus.mapNotNull { i ->
+                val c = conseils[i]
+                (Gestion.nomFournisseur(data, c.fournisseurId) ?: c.enseigne).takeIf { it.isNotBlank() }
+            }.distinctBy { Gestion.normaliser(it) }
+            val fournisseurs = enseignesBon.mapNotNull { e -> Gestion.agencesDe(data, e).singleOrNull()?.id }
+            val enseignesSeules = enseignesBon.filter { e -> Gestion.agencesDe(data, e).size != 1 }
             if (fournisseurs.isNotEmpty()) {
                 BoutonPlein("🗺️ Ajouter ${fournisseurs.size} fournisseur" + (if (fournisseurs.size > 1) "s" else "") + " au trajet", Couleurs.Bleu) {
                     var n = 0

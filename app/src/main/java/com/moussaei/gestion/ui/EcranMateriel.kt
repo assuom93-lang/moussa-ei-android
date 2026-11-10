@@ -147,33 +147,36 @@ fun SuggestionsProduits(data: AppData, saisie: String, onChoix: (Produit) -> Uni
 
 @Composable
 fun EcranMateriel(data: AppData, repo: Repository, recherche: String) {
-    var filtre by rememberSaveable { mutableStateOf("") } // id fournisseur ; "" = tous
+    var filtre by rememberSaveable { mutableStateOf("") } // enseigne ; "" = tous
     var ficheId by rememberSaveable { mutableStateOf<String?>(null) }
     var versCamion by rememberSaveable { mutableStateOf<String?>(null) }
 
     // Fournisseurs proposés en filtre : ceux des produits et du camion à charger.
     val idsFiltres = (data.produits.map { it.fournisseurId } + data.materiels.filter { !it.recupere }.map { it.fournisseurId })
         .filter { it.isNotBlank() }.distinct()
-    val filtres = idsFiltres.mapNotNull { Gestion.fournisseur(data, it) }.sortedWith { a, b -> Gestion.compareNoms(a.nom, b.nom) }
+    // Un filtre par enseigne (Point P regroupe toutes ses agences).
+    val filtres = idsFiltres.mapNotNull { Gestion.nomFournisseur(data, it) }
+        .distinctBy { Gestion.normaliser(it) }.sortedWith { a, b -> Gestion.compareNoms(a, b) }
+    fun chez(id: String) = filtre.isBlank() || Gestion.nomFournisseur(data, id)?.let { Gestion.memeEnseigne(it, filtre) } == true
     val produits = Produits.tries(data).filter {
-        (filtre.isBlank() || it.fournisseurId == filtre) &&
-            Gestion.correspond(recherche, it.nom, it.note, Gestion.fournisseur(data, it.fournisseurId)?.nom)
+        chez(it.fournisseurId) &&
+            Gestion.correspond(recherche, it.nom, it.note, Gestion.nomFournisseur(data, it.fournisseurId))
     }
     val aRecuperer = if (filtre.isBlank()) emptyList()
-    else data.materiels.filter { !it.recupere && it.fournisseurId == filtre && Gestion.correspond(recherche, it.nom) }
+    else data.materiels.filter { !it.recupere && chez(it.fournisseurId) && Gestion.correspond(recherche, it.nom) }
         .sortedWith { a, b -> Gestion.compareNoms(a.nom, b.nom) }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 BoutonPetit("Tous", if (filtre.isBlank()) Couleurs.Bleu else Couleurs.Gris) { filtre = "" }
-                filtres.forEach { f ->
-                    BoutonPetit(f.nom.trim(), if (filtre == f.id) Couleurs.Bleu else Couleurs.Gris) { filtre = f.id }
+                filtres.forEach { e ->
+                    BoutonPetit(e, if (filtre.isNotBlank() && Gestion.memeEnseigne(filtre, e)) Couleurs.Bleu else Couleurs.Gris) { filtre = e }
                 }
             }
         }
         if (filtre.isNotBlank()) {
-            val nomF = Gestion.fournisseur(data, filtre)?.nom?.trim() ?: ""
+            val nomF = filtre
             item { SectionTitre("🚚 À récupérer chez $nomF (${aRecuperer.size})") }
             if (aRecuperer.isEmpty()) item { Ligne("Rien à récupérer ici pour l'instant.") }
             items(aRecuperer, key = { "c:" + it.id }) { m ->
@@ -201,7 +204,7 @@ fun EcranMateriel(data: AppData, repo: Repository, recherche: String) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         TitreCarte(p.nom)
-                        Gestion.fournisseur(data, p.fournisseurId)?.let { Ligne("🏭 " + it.nom.trim()) }
+                        Gestion.nomFournisseur(data, p.fournisseurId)?.let { Ligne("🏭 $it") }
                         val infos = listOfNotNull(
                             if (nbLivre > 0) "livré $nbLivre fois" else null,
                             if (nbCamion > 0) "🚚 $nbCamion dans le camion" else null,
@@ -265,7 +268,7 @@ private fun FicheProduit(data: AppData, repo: Repository, p: Produit, onCamion: 
 
         Carte {
             Champ("Nom", nom, { nom = it })
-            ChampChoix("Fournisseur habituel", Gestion.fournisseur(data, p.fournisseurId)?.nom?.trim() ?: "-- Aucun --") { choixF = true }
+            ChampChoix("Fournisseur habituel", Gestion.nomFournisseur(data, p.fournisseurId) ?: "-- Aucun --") { choixF = true }
             Champ("Note (référence, dimension…)", note, { note = it })
             BoutonPetit("Enregistrer", Couleurs.Vert) {
                 if (nom.isBlank()) Actions.toast(ctx, "Le nom est obligatoire")
@@ -288,10 +291,10 @@ private fun FicheProduit(data: AppData, repo: Repository, p: Produit, onCamion: 
         }
     }
     if (voirPhoto) VisionneusePhoto(p.photo) { voirPhoto = false }
-    if (choixF) ChoixFournisseur(data, { id -> repo.update { Produits.changerFournisseur(it, p.id, id) }; choixF = false }) { choixF = false }
+    if (choixF) ChoixFournisseur(data, p.fournisseurId, { id -> repo.update { Produits.changerFournisseur(it, p.id, id) }; choixF = false }) { choixF = false }
     if (fusion) ChoixDialog(
         "Fusionner « ${p.nom} » dans…",
-        Produits.tries(data).filter { it.id != p.id }.map { Option(it.id, it.nom, Gestion.fournisseur(data, it.fournisseurId)?.nom ?: "") },
+        Produits.tries(data).filter { it.id != p.id }.map { Option(it.id, it.nom, Gestion.nomFournisseur(data, it.fournisseurId) ?: "") },
         onChoix = { cible ->
             fusion = false
             confirmation.demander("« ${p.nom} » sera fusionné dans « ${Produits.parId(data, cible)?.nom} ». Continuer ?", "Fusionner") {
@@ -315,7 +318,7 @@ private fun AjoutCamionProduit(data: AppData, repo: Repository, p: Produit, onFe
     var choixC by rememberSaveable { mutableStateOf(false) }
     FenetrePleine("➕ " + p.nom + " → camion", onFermer) {
         Champ("Quantité (optionnel)", quantite, { quantite = it.filter { c -> c.isDigit() } }, "ex: 10", clavier = androidx.compose.ui.text.input.KeyboardType.Number)
-        ChampChoix("Fournisseur", Gestion.fournisseur(data, fournisseurId)?.nom?.trim() ?: "-- Aucun --") { choixF = true }
+        ChampChoix("Fournisseur", Gestion.nomFournisseur(data, fournisseurId) ?: "-- Aucun --") { choixF = true }
         val ch = data.chantiers.firstOrNull { it.id == chantierId }
         ChampChoix("Chantier (optionnel)", ch?.let { Gestion.nomAffiche(it) } ?: "-- Aucun chantier --") { choixC = true }
         BoutonPlein("🚚 Ajouter au camion", Couleurs.Vert) {
@@ -325,6 +328,6 @@ private fun AjoutCamionProduit(data: AppData, repo: Repository, p: Produit, onFe
             onFermer()
         }
     }
-    if (choixF) ChoixFournisseur(data, { fournisseurId = it; choixF = false }) { choixF = false }
+    if (choixF) ChoixFournisseur(data, fournisseurId, { fournisseurId = it; choixF = false }) { choixF = false }
     if (choixC) ChoixChantier(data, { chantierId = it; choixC = false }) { choixC = false }
 }
